@@ -66,7 +66,13 @@ jobs:
           
           # Create archive
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -r "${DIRNAME}.zip" "$DIRNAME"
+            if [ "${{ matrix.os }}" = "windows-latest" ]; then
+              # Windows uses 7z which is pre-installed
+              7z a "${DIRNAME}.zip" "$DIRNAME"
+            else
+              # Other platforms use zip
+              zip -r "${DIRNAME}.zip" "$DIRNAME"
+            fi
             echo "ASSET=${DIRNAME}.zip" >> $GITHUB_ENV
           else
             tar -czf "${DIRNAME}.tar.gz" "$DIRNAME"
