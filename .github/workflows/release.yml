@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+" # Triggers on tags like v1.0.0
+      - "v[0-9]+.[0-9]+.[0-9]+-*" # Triggers on tags like v1.0.0-pre, v1.0.0-alpha, etc.
 
 permissions:
   contents: write # Required for creating releases
@@ -66,9 +67,19 @@ jobs:
             echo "ASSET=${DIRNAME}.tar.gz" >> $GITHUB_ENV
           fi
 
+      - name: Check if tag is prerelease
+        id: check_prerelease
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF == *"-"* ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ env.ASSET }}
           draft: false
-          prerelease: false
+          prerelease: ${{ env.IS_PRERELEASE }}
