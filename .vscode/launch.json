@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--lib"
+                ]
+            },
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'pytron'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=pytron",
+                    "--package=pytron"
+                ],
+                "filter": {
+                    "name": "pytron",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "zip",
+                // "--",
+                // "--directory",
+                // ".",
+                // "--output",
+                // "robot.zip"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'pytron'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=pytron",
+                    "--package=pytron"
+                ],
+                "filter": {
+                    "name": "pytron",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
