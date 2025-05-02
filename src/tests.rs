@@ -69,7 +69,11 @@ fn test_zip_directory() {
 
     // Verify specific files are present
     let file_names: Vec<String> = (0..archive.len())
-        .map(|i| archive.by_index(i).unwrap().name().to_string())
+        .map(|i| {
+            let name = archive.by_index(i).unwrap().name().to_string();
+            // Normalize backslashes to forward slashes for cross-platform compatibility
+            name.replace('\\', "/")
+        })
         .collect();
 
     assert!(
@@ -126,9 +130,13 @@ fn test_zip_directory_with_custom_ignore() {
     let file = File::open(&output_zip).expect("Failed to open zip file");
     let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
     
-    // Get all file names in the archive
+    // Get all file names in the archive and normalize path separators
     let file_names: Vec<String> = (0..archive.len())
-        .map(|i| archive.by_index(i).unwrap().name().to_string())
+        .map(|i| {
+            let name = archive.by_index(i).unwrap().name().to_string();
+            // Normalize backslashes to forward slashes for cross-platform compatibility
+            name.replace('\\', "/")
+        })
         .collect();
     
     println!("Files in custom ignore archive: {:?}", file_names);
@@ -178,9 +186,13 @@ fn test_zip_directory_override_defaults() {
     let file = File::open(&output_zip).expect("Failed to open zip file");
     let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
     
-    // Get all file names in the archive
+    // Get all file names in the archive and normalize path separators
     let file_names: Vec<String> = (0..archive.len())
-        .map(|i| archive.by_index(i).unwrap().name().to_string())
+        .map(|i| {
+            let name = archive.by_index(i).unwrap().name().to_string();
+            // Normalize backslashes to forward slashes for cross-platform compatibility
+            name.replace('\\', "/")
+        })
         .collect();
     
     println!("Files in override defaults archive: {:?}", file_names);

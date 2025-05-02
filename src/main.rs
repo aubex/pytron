@@ -186,8 +186,8 @@ pub fn zip_directory(directory: &str, output: &str, ignore_patterns: Option<&Vec
                         .map(|f| f.to_string_lossy().to_string())
                         .unwrap_or_default();
                     
-                    // Get path string for full path matching
-                    let rel_path_str = rel_path.to_string_lossy();
+                    // Get path string for full path matching and normalize to use forward slashes
+                    let rel_path_str = rel_path.to_string_lossy().replace('\\', "/");
 
                     if pattern.starts_with("*.") {
                         // Handle extension patterns like "*.log"
@@ -220,7 +220,9 @@ pub fn zip_directory(directory: &str, output: &str, ignore_patterns: Option<&Vec
                     // Print progress
                     println!("Adding: {}", rel_path.display());
 
-                    zip.start_file(rel_path.to_string_lossy(), options)?;
+                    // Convert path to use forward slashes for cross-platform compatibility
+                    let zip_path = rel_path.to_string_lossy().replace('\\', "/");
+                    zip.start_file(&zip_path, options)?;
 
                     // Write file contents
                     let mut file = File::open(path)?;
@@ -253,7 +255,9 @@ pub fn run_from_zip(zipfile: &str, script_path: &str, args: &[String]) -> io::Re
     // Extract all files
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let outpath = temp_dir.path().join(file.name());
+        // Normalize file path for cross-platform compatibility
+        let normalized_name = file.name().replace('/', &std::path::MAIN_SEPARATOR.to_string());
+        let outpath = temp_dir.path().join(normalized_name);
 
         if file.is_dir() {
             std::fs::create_dir_all(&outpath)?;
