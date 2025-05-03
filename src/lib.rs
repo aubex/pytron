@@ -268,6 +268,19 @@ pub fn get_pytron_home() -> PathBuf {
 pub fn get_uv_path() -> PathBuf {
     let pytron_home = get_pytron_home();
     
+    // Check for uv directly in PYTRON_HOME first (this is where the install script puts it)
+    let direct_path = if cfg!(windows) {
+        pytron_home.join("uv.exe")
+    } else {
+        pytron_home.join("uv")
+    };
+    
+    // If it exists directly in PYTRON_HOME, use that path
+    if direct_path.exists() {
+        return direct_path;
+    }
+    
+    // Otherwise check in the bin subdirectory (older installations may use this location)
     if cfg!(windows) {
         pytron_home.join("bin").join("uv.exe")
     } else {
@@ -334,7 +347,10 @@ pub fn install_uv() -> io::Result<()> {
         }
     }
     
+    // Show the expected path of the uv executable
+    let uv_path = get_uv_path();
     println!("Successfully installed uv to {}", install_path.display());
+    println!("uv command path: {}", uv_path.display());
     Ok(())
 }
 
@@ -424,6 +440,20 @@ pub fn run_from_zip(
     cmd_args.extend_from_slice(script_args);
 
     println!("Running: uv {}", cmd_args.join(" "));
+
+    // Check if uv is installed and install if needed
+    if !is_uv_installed() {
+        println!("uv not found. Attempting to install...");
+        match install_uv() {
+            Ok(_) => println!("uv installed successfully."),
+            Err(e) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed to install uv: {}", e)
+                ));
+            }
+        }
+    }
 
     // Run the script using uv (using our helper function)
     let status = get_uv_command().args(&cmd_args).status()?;

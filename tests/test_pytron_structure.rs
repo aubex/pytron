@@ -34,17 +34,18 @@ fn test_pytron_home_directory_structure() {
     // Check uv path has the expected structure
     let uv_path = pytron::get_uv_path();
     
-    // Check that it has the expected format
+    // Check that it has the expected format - with the new installation, uv can be directly in PYTRON_HOME
+    // or in the bin subdirectory
     #[cfg(windows)]
     {
-        assert!(uv_path.ends_with("bin\\uv.exe"), 
-            "Windows uv path should end with bin\\uv.exe, got: {:?}", uv_path);
+        assert!(uv_path.ends_with("bin\\uv.exe") || uv_path.ends_with("uv.exe"), 
+            "Windows uv path should end with bin\\uv.exe or uv.exe, got: {:?}", uv_path);
     }
     
     #[cfg(not(windows))]
     {
-        assert!(uv_path.ends_with("bin/uv"), 
-            "Unix uv path should end with bin/uv, got: {:?}", uv_path);
+        assert!(uv_path.ends_with("bin/uv") || uv_path.ends_with("uv"), 
+            "Unix uv path should end with bin/uv or uv, got: {:?}", uv_path);
     }
     
     // Create the temp directory for extraction and check it
