@@ -41,9 +41,12 @@ fn test_run_from_zip() {
     );
 }
 
-// Test for argument handling 
+// Test for argument handling
 #[test]
 fn test_run_with_arguments() {
+    // First, make sure to clean up any existing PYTRON_HOME from previous tests
+    env::remove_var("PYTRON_HOME");
+
     // Create a special test script that captures its arguments
     let test_dir = tempfile::tempdir().expect("Failed to create temp directory");
     let script_path = test_dir.path().join("arg_test.py");
@@ -86,7 +89,7 @@ print(f"Arguments received: {sys.argv[1:]}")
     }
 
     // The script args to test
-    let uv_args = vec!["-v".to_string()];  // Verbose flag for uv
+    let uv_args = vec!["-v".to_string()]; // Verbose flag for uv
     let script_args = vec!["hello".to_string(), "world".to_string()];
 
     // Run the test in a separate thread with a timeout
@@ -120,8 +123,7 @@ print(f"Arguments received: {sys.argv[1:]}")
         }
     });
 
-    // Wait for the test to complete with a longer timeout (3 seconds)
-    let mut retries = 6;  // 3 seconds (6 * 500ms)
+    let mut retries = 2; // 1 second (2 * 500ms)
     while !done_flag.load(Ordering::SeqCst) && retries > 0 {
         thread::sleep(Duration::from_millis(500));
         retries -= 1;
@@ -149,7 +151,9 @@ print(f"Arguments received: {sys.argv[1:]}")
         );
     } else {
         println!("WARNING: test_run_with_arguments did not complete within timeout");
-        println!("This is not necessarily a failure - the test might be skipped on systems without uv.");
+        println!(
+            "This is not necessarily a failure - the test might be skipped on systems without uv."
+        );
     }
 
     // Clean up

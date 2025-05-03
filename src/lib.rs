@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tempfile::tempdir;
+use tempfile;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
@@ -344,23 +344,18 @@ pub fn run_from_zip(
     uv_args: &[String],
     script_args: &[String],
 ) -> io::Result<i32> {
-    // Create a temporary directory for extraction inside PYTRON_HOME if specified
-    let temp_dir = if let Ok(path) = env::var("PYTRON_HOME") {
-        // Create a unique temporary directory in PYTRON_HOME
-        let pytron_home = PathBuf::from(path);
-        let temp_path = pytron_home.join("temp");
-        
-        // Create the temp directory if it doesn't exist
-        fs::create_dir_all(&temp_path)?;
-        
-        // Create a unique directory using tempfile in our custom location
-        tempfile::Builder::new()
-            .prefix("pytron_")
-            .tempdir_in(temp_path)?
-    } else {
-        // Fall back to system temp directory if PYTRON_HOME is not set
-        tempdir()?
-    };
+    // Create a temporary directory for extraction inside PYTRON_HOME
+    // Use our centralized get_pytron_home function for consistency
+    let pytron_home = get_pytron_home();
+    let temp_path = pytron_home.join("temp");
+    
+    // Create the temp directory if it doesn't exist
+    fs::create_dir_all(&temp_path)?;
+    
+    // Create a unique directory using tempfile in our custom location
+    let temp_dir = tempfile::Builder::new()
+        .prefix("pytron_")
+        .tempdir_in(temp_path)?;
 
     println!("Extracting {} to temporary directory: {}", zipfile, temp_dir.path().display());
 

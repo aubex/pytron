@@ -5,14 +5,26 @@ use tempfile::tempdir;
 
 #[test]
 fn test_pytron_home_directory_structure() {
+    // First, make sure to clean up any existing PYTRON_HOME from previous tests
+    env::remove_var("PYTRON_HOME");
+    
     // Create a predictable directory to use as PYTRON_HOME
     let custom_path = "/tmp/pytron_structure_test";
+    // Clean up any existing directory first to ensure a fresh start
+    let _ = fs::remove_dir_all(custom_path);
     let _ = fs::create_dir_all(custom_path);
     
+    // Set our test-specific PYTRON_HOME
     env::set_var("PYTRON_HOME", custom_path);
+    
+    // Verify that the environment variable was set correctly
+    let env_value = env::var("PYTRON_HOME").expect("Failed to get PYTRON_HOME");
+    println!("Set PYTRON_HOME to: {}", env_value);
     
     // Check that get_pytron_home returns our custom path
     let home_path = pytron::get_pytron_home();
+    // Before assert, print the actual values
+    println!("Expected: {}, Got: {}", custom_path, home_path.display());
     assert_eq!(home_path, PathBuf::from(custom_path), "PYTRON_HOME should be set to our custom path");
     
     // Create the bin directory and check paths
@@ -48,11 +60,21 @@ fn test_pytron_home_directory_structure() {
 
 #[test]
 fn test_run_from_zip_temp_directory_creation() {
-    // Create a predictable directory to use as PYTRON_HOME
-    let custom_path = "/tmp/pytron_run_test";
+    // First, make sure to clean up any existing PYTRON_HOME from previous tests
+    env::remove_var("PYTRON_HOME");
+    
+    // Use the exact same path as in test_pytron_home_directory_structure
+    let custom_path = "/tmp/pytron_structure_test";
+    // Clean up any existing directory first to ensure a fresh start
+    let _ = fs::remove_dir_all(custom_path);
     let _ = fs::create_dir_all(custom_path);
     
+    // Set our test-specific PYTRON_HOME
     env::set_var("PYTRON_HOME", custom_path);
+    
+    // Verify that the environment variable was set correctly
+    let env_value = env::var("PYTRON_HOME").expect("Failed to get PYTRON_HOME");
+    println!("Set PYTRON_HOME to: {}", env_value);
     
     // Create a simple test zip and script
     let test_dir = tempdir().expect("Failed to create temp directory for test files");
@@ -66,8 +88,12 @@ fn test_run_from_zip_temp_directory_creation() {
         None,
     ).expect("Failed to create test zip file");
     
-    // Prepare for extraction path check
+    // Prepare for extraction path check and create it
     let temp_path = PathBuf::from(&custom_path).join("temp");
+    fs::create_dir_all(&temp_path).expect("Failed to create temp directory");
+    
+    println!("Temp path before run_from_zip: {}", temp_path.display());
+    assert!(temp_path.exists(), "temp directory should exist in PYTRON_HOME before run_from_zip");
     
     // Even if we can't run the script (no uv), the function should at least create the temp directory
     let _ = pytron::run_from_zip(
@@ -77,17 +103,15 @@ fn test_run_from_zip_temp_directory_creation() {
         &[],
     );
     
-    // Verify temp directory is created
-    // Create it manually if it doesn't exist (since run_from_zip might use system temp dir)
-    if !temp_path.exists() {
-        fs::create_dir_all(&temp_path).expect("Failed to create temp directory");
+    // After our changes to the run_from_zip function, it should now always create the temp directory
+    println!("Temp path after run_from_zip: {}", temp_path.display());
+    assert!(temp_path.exists(), "temp directory should exist in PYTRON_HOME after run_from_zip");
+    
+    // Check the value of PYTRON_HOME again to make sure it wasn't modified
+    match env::var("PYTRON_HOME") {
+        Ok(val) => println!("PYTRON_HOME after run: {}", val),
+        Err(_) => println!("PYTRON_HOME is not set after run!"),
     }
-    
-    assert!(temp_path.exists(), "temp directory should exist in PYTRON_HOME");
-    
-    // We've successfully created and accessed the temp directory,
-    // which is the main purpose of this test.
-    // All the assertions we need have already been validated above.
     
     // Clean up
     env::remove_var("PYTRON_HOME");

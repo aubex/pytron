@@ -9,6 +9,9 @@ use tempfile::tempdir;
 fn test_get_uv_command() {
     // Test when uv is not installed (should use custom path)
     {
+        // First, make sure to clean up any existing PYTRON_HOME from previous tests
+        env::remove_var("PYTRON_HOME");
+        
         // Create a custom PYTRON_HOME
         let temp_dir = tempdir().expect("Failed to create temp directory");
         let custom_path = temp_dir.path().to_string_lossy().to_string();
@@ -61,6 +64,9 @@ fn test_get_uv_command() {
 // We don't actually run the installation in tests
 #[test]
 fn test_uv_installation_paths() {
+    // First, make sure to clean up any existing PYTRON_HOME from previous tests
+    env::remove_var("PYTRON_HOME");
+    
     // Create a custom PYTRON_HOME
     let temp_dir = tempdir().expect("Failed to create temp directory");
     let custom_path = temp_dir.path().to_string_lossy().to_string();
