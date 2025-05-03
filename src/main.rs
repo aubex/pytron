@@ -1,30 +1,156 @@
-use pytron::{Cli, Commands};
 use clap::Parser;
-use std::process::exit;
+use pytron::{Cli, Commands};
+use std::{env, process::exit};
 
 fn main() {
-    let cli = Cli::parse();
+    let args: Vec<String> = env::args().collect();
 
-    match &cli.command {
-        Commands::Zip { directory, output, ignore_patterns } => {
-            if let Err(err) = pytron::zip_directory(&directory, &output, ignore_patterns.as_ref()) {
-                eprintln!("Error zipping directory: {}", err);
-                exit(1);
-            }
+    // Check if we're using the run command
+    if args.len() > 1 && args[1] == "run" {
+        // Check for -h/--help to show pytron's help
+        if args.len() > 2 && (args[2] == "-h" || args[2] == "--help") {
+            // Use clap's parser to show help - this will display help and exit
+            Cli::parse_from(vec!["pytron", "run", "--help"]);
+            return; // This line won't be reached as clap will exit after showing help
         }
-        Commands::Run {
-            zipfile,
-            script,
-            args,
-        } => {
-            let exit_code = match pytron::run_from_zip(&zipfile, &script, args) {
+
+        // Default values
+        let mut zipfile = "robot.zip".to_string();
+        let script = "main.py".to_string();
+        let mut script_args = Vec::new();
+        let mut uv_args = Vec::new();
+
+        // Parse custom args using double-dash as separator
+        let mut i = 2;
+        let mut found_separator = false;
+        let mut found_script_name = false;
+
+        while i < args.len() {
+            // Check for the double-dash separator
+            if args[i] == "--" && !found_separator {
+                found_separator = true;
+                i += 1;
+                continue;
+            }
+
+            // After separator or script name, everything goes to script
+            if found_separator || found_script_name {
+                script_args.push(args[i].clone());
+                i += 1;
+                continue;
+            }
+
+            // If not a flag and no script name found yet, treat as script/zipfile name
+            if !args[i].starts_with('-') {
+                zipfile = args[i].clone();
+                found_script_name = true;
+                i += 1;
+                continue;
+            }
+
+            // Handle special case for --uv-run-help/-hh flags
+            if args[i] == "--uv-run-help" || args[i] == "-hh" {
+                // Convert to standard help flag for uv
+                uv_args.push("--help".to_string());
+                i += 1;
+                continue;
+            }
+
+            // Everything else before separator or script name is a uv flag
+            uv_args.push(args[i].clone());
+            i += 1;
+        }
+
+        println!("Running: {}", script);
+        println!("UV args: {:?}", uv_args);
+        println!("Script args: {:?}", script_args);
+
+        // Check if the first arg is a zipfile or a direct script
+        let path = std::path::Path::new(&zipfile);
+        let exit_code = if path
+            .extension().is_some_and(|ext| ext == "zip" || ext == "ZIP")
+        {
+            // It's a zipfile, run from zip
+            println!("Running from zip: {}", zipfile);
+
+            // Don't pass the script as an argument again, it will be handled by run_from_zip
+            // If script is in script_args, remove it
+            let filtered_script_args: Vec<String> = script_args
+                .iter()
+                .filter(|&arg| arg != &script)
+                .cloned()
+                .collect();
+
+            // Pass uv_args and script_args separately
+            match pytron::run_from_zip(&zipfile, &script, &uv_args, &filtered_script_args) {
                 Ok(code) => code,
                 Err(err) => {
                     eprintln!("Error running from zip: {}", err);
                     1
                 }
-            };
-            exit(exit_code);
+            }
+        } else {
+            // It's a script, run directly
+            println!("Running script directly: {}", zipfile);
+
+            // In this case, zipfile is actually the script path
+            let mut cmd_args = vec!["run".to_string()];
+
+            // Add uv args
+            cmd_args.extend_from_slice(&uv_args);
+
+            // Add script path
+            cmd_args.push(zipfile.clone());
+
+            // Add script args
+            cmd_args.extend_from_slice(&script_args);
+
+            println!("Running: uv {}", cmd_args.join(" "));
+
+            // Run the script using uv
+            match std::process::Command::new("uv").args(&cmd_args).status() {
+                Ok(status) => status.code().unwrap_or(1),
+                Err(err) => {
+                    eprintln!("Error running script: {}", err);
+                    1
+                }
+            }
+        };
+
+        exit(exit_code);
+    } else {
+        // Use clap for all other commands
+        let cli = Cli::parse();
+
+        match &cli.command {
+            Commands::Zip {
+                directory,
+                output,
+                ignore_patterns,
+            } => {
+                if let Err(err) =
+                    pytron::zip_directory(directory, output, ignore_patterns.as_ref())
+                {
+                    eprintln!("Error zipping directory: {}", err);
+                    exit(1);
+                }
+            }
+            Commands::Run {
+                zipfile,
+                script,
+                uv_args,
+                script_args,
+            } => {
+                // This branch is for when using clap with -- to pass args
+                let exit_code = match pytron::run_from_zip(zipfile, script, uv_args, script_args) {
+                    Ok(code) => code,
+                    Err(err) => {
+                        eprintln!("Error running from zip: {}", err);
+                        1
+                    }
+                };
+                exit(exit_code);
+            }
         }
     }
 }

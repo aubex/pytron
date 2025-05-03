@@ -36,18 +36,44 @@ pub enum Commands {
         ignore_patterns: Option<Vec<String>>,
     },
 
-    /// Extract and run a script from the zip archive
+    #[command(
+        override_usage = "pytron run [UV_ARGS] [ZIPFILE] [SCRIPT] [SCRIPT_ARGS]...",
+        about = "Run a script - either directly or from a zip archive",
+        long_about = "Run a script - either directly or from a zip archive\n\nArguments are separated using a double-dash (--) or by specifying a script/zipfile path:\n  - Arguments before -- or before the zipfile path are passed to uv run\n  - Arguments after -- or after the zipfile path are passed to the script\n\nSpecial flags:\n  -h/--help: Show this help message (pytron's help)\n  -hh/--uv-run-help: Show uv's help message"
+    )]
     Run {
-        /// Path to the zip file
-        #[arg(default_value = "robot.zip")]
+        #[arg(
+            default_value = "robot.zip",
+            help = "Path to the zip file or script",
+            long_help = "Path to the zip file or script\nIf a zip file (.zip), will extract and run the specified script from it\nIf a Python file (.py), will run it directly using uv"
+        )]
         zipfile: String,
 
-        /// Script to run from the zip
-        #[arg(default_value = "main.py")]
+        #[arg(
+            default_value = "main.py",
+            help = "Script to run from the zip (if zipfile is a zip archive)",
+            long_help = "Script to run from the zip (if zipfile is a zip archive)\nIf running a script directly, this is optional"
+        )]
         script: String,
 
-        /// Arguments to pass to the script
-        args: Vec<String>,
+        #[arg(
+            value_name = "UV_ARGS",
+            allow_hyphen_values = true,
+            num_args = 0..,
+            help = "Arguments passed to uv run (before the -- or zipfile)",
+            long_help = "Arguments passed to the uv run command\nThese appear before the -- separator or before the zipfile path\nExamples:\n  --with-pip\n  --system-site-packages\n  -v (verbose)"
+        )]
+        uv_args: Vec<String>,
+
+        #[arg(
+            value_name = "SCRIPT_ARGS",
+            allow_hyphen_values = true,
+            last = true,
+            num_args = 0..,
+            help = "Arguments passed to your script (after the -- or zipfile)",
+            long_help = "Arguments passed to your Python script\nThese appear after the -- separator or after the zipfile path\nExamples:\n  --verbose\n  --config=config.json\n  -o output.txt"
+        )]
+        script_args: Vec<String>,
     },
 }
 
@@ -180,10 +206,9 @@ pub fn zip_directory(
                         // Handle prefix patterns like "prefix*"
                         let prefix = &pattern[..pattern.len() - 1];
                         rel_path_str.starts_with(prefix)
-                    } else if pattern.starts_with("*") {
+                    } else if let Some(stripped) = pattern.strip_prefix("*") {
                         // Handle suffix patterns like "*suffix"
-                        let suffix = &pattern[1..];
-                        rel_path_str.ends_with(suffix)
+                        rel_path_str.ends_with(stripped)
                     } else {
                         // Exact match
                         &*rel_path_str == pattern
@@ -221,7 +246,12 @@ pub fn zip_directory(
     Ok(())
 }
 
-pub fn run_from_zip(zipfile: &str, script_path: &str, args: &[String]) -> io::Result<i32> {
+pub fn run_from_zip(
+    zipfile: &str,
+    script_path: &str,
+    uv_args: &[String],
+    script_args: &[String],
+) -> io::Result<i32> {
     // Create a temporary directory for extraction
     let temp_dir = tempdir()?;
 
@@ -237,7 +267,7 @@ pub fn run_from_zip(zipfile: &str, script_path: &str, args: &[String]) -> io::Re
         // Normalize file path for cross-platform compatibility
         let normalized_name = file
             .name()
-            .replace('/', &std::path::MAIN_SEPARATOR.to_string());
+            .replace('/', std::path::MAIN_SEPARATOR_STR);
         let outpath = temp_dir.path().join(normalized_name);
 
         if file.is_dir() {
@@ -277,12 +307,19 @@ pub fn run_from_zip(zipfile: &str, script_path: &str, args: &[String]) -> io::Re
         ));
     }
 
+    // Arguments are now passed separately, no need to separate them here
+
     // Prepare the command
-    let mut cmd_args = vec![
-        "run".to_string(),
-        script_full_path.to_string_lossy().to_string(),
-    ];
-    cmd_args.extend_from_slice(args);
+    let mut cmd_args = vec!["run".to_string()];
+
+    // Add uv flags/options
+    cmd_args.extend_from_slice(uv_args);
+
+    // Add script path
+    cmd_args.push(script_full_path.to_string_lossy().to_string());
+
+    // Add script arguments
+    cmd_args.extend_from_slice(script_args);
 
     println!("Running: uv {}", cmd_args.join(" "));
 
