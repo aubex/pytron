@@ -1,8 +1,46 @@
 use std::fs::File;
+use std::io::Write;
 use std::process::Command;
+use tempfile::tempdir;
 
-mod common;
-use common::create_exit_code_test_directory;
+// Helper function to create test directory with scripts that return different exit codes
+fn create_exit_code_test_directory() -> tempfile::TempDir {
+    let dir = tempdir().expect("Failed to create temp directory");
+
+    // Copy the test files from fixtures to the temp directory
+    let fixtures = [
+        "test_exit_code_0.py",
+        "test_exit_code_1.py",
+        "test_exit_code_custom.py",
+    ];
+
+    for fixture in fixtures {
+        let fixture_path = format!("tests/fixtures/{}", fixture);
+        let dest_path = dir.path().join(fixture);
+
+        // Read the fixture content
+        let content = std::fs::read_to_string(&fixture_path)
+            .expect(&format!("Failed to read fixture {}", fixture_path));
+
+        // Write it to the temp directory
+        let mut file =
+            File::create(&dest_path).expect(&format!("Failed to create {}", dest_path.display()));
+        file.write_all(content.as_bytes())
+            .expect(&format!("Failed to write to {}", dest_path.display()));
+
+        // Set executable permissions on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = dest_path.metadata().unwrap();
+            let mut perms = metadata.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&dest_path, perms).unwrap();
+        }
+    }
+
+    dir
+}
 
 // Test that mocks the exit code functionality to verify code handling
 #[test]
@@ -57,12 +95,9 @@ fn test_exit_code_handling() {
         // Now test the exit code handling part directly 
         // (no need for the mock status object, just assert directly)
         
-        // Verify that the correct exit code can be properly determined
-        assert_eq!(
-            *expected_code, *expected_code,
-            "Expected exit code to be correctly processed for script {}",
-            script_name
-        );
+        // This is a placeholder verification since we're not actually running the script
+        // The real test is just making sure the script exists in the zip file
+        // The exit code verification happens in the test_exit_code_forwarding_integration test
     }
 }
 

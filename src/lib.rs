@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
 use ignore::WalkBuilder;
-use std::fs::File;
+use std::env;
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::tempdir;
 use zip::write::SimpleFileOptions;
@@ -246,16 +247,122 @@ pub fn zip_directory(
     Ok(())
 }
 
+/// Checks if uv is installed and accessible in PATH
+pub fn is_uv_installed() -> bool {
+    Command::new("uv").arg("--version").output().is_ok()
+}
+
+/// Gets the pytron home directory path
+pub fn get_pytron_home() -> PathBuf {
+    // Check if PYTRON_HOME is set
+    if let Ok(path) = env::var("PYTRON_HOME") {
+        return PathBuf::from(path);
+    }
+    
+    // Otherwise use a default location in the user's home directory
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    home.join("pytron_home")
+}
+
+/// Get the path to the uv executable
+pub fn get_uv_path() -> PathBuf {
+    let pytron_home = get_pytron_home();
+    
+    if cfg!(windows) {
+        pytron_home.join("bin").join("uv.exe")
+    } else {
+        pytron_home.join("bin").join("uv")
+    }
+}
+
+/// Creates a command for uv, using installed path if available or custom path if not
+pub fn get_uv_command() -> Command {
+    if is_uv_installed() {
+        Command::new("uv")
+    } else {
+        Command::new(get_uv_path())
+    }
+}
+
+/// Install uv to the pytron home directory
+pub fn install_uv() -> io::Result<()> {
+    let install_path = get_pytron_home();
+    
+    // Create the directory if it doesn't exist
+    fs::create_dir_all(&install_path)?;
+    
+    println!("Installing uv to {}", install_path.display());
+    
+    // Platform-specific installation
+    #[cfg(windows)]
+    {
+        // Windows installation using PowerShell
+        let ps_command = format!(
+            "powershell -ExecutionPolicy ByPass -c {{$env:UV_UNMANAGED_INSTALL = \"{}\"; irm https://astral.sh/uv/install.ps1 | iex}}",
+            install_path.display()
+        );
+        
+        let status = Command::new("cmd")
+            .args(&["/C", &ps_command])
+            .status()?;
+            
+        if !status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to install uv on Windows"
+            ));
+        }
+    }
+    
+    #[cfg(not(windows))]
+    {
+        // Unix installation using curl and sh
+        let install_cmd = format!(
+            "curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=\"{}\" sh",
+            install_path.display()
+        );
+        
+        let status = Command::new("sh")
+            .args(["-c", &install_cmd])
+            .status()?;
+            
+        if !status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to install uv on Unix"
+            ));
+        }
+    }
+    
+    println!("Successfully installed uv to {}", install_path.display());
+    Ok(())
+}
+
 pub fn run_from_zip(
     zipfile: &str,
     script_path: &str,
     uv_args: &[String],
     script_args: &[String],
 ) -> io::Result<i32> {
-    // Create a temporary directory for extraction
-    let temp_dir = tempdir()?;
+    // Create a temporary directory for extraction inside PYTRON_HOME if specified
+    let temp_dir = if let Ok(path) = env::var("PYTRON_HOME") {
+        // Create a unique temporary directory in PYTRON_HOME
+        let pytron_home = PathBuf::from(path);
+        let temp_path = pytron_home.join("temp");
+        
+        // Create the temp directory if it doesn't exist
+        fs::create_dir_all(&temp_path)?;
+        
+        // Create a unique directory using tempfile in our custom location
+        tempfile::Builder::new()
+            .prefix("pytron_")
+            .tempdir_in(temp_path)?
+    } else {
+        // Fall back to system temp directory if PYTRON_HOME is not set
+        tempdir()?
+    };
 
-    println!("Extracting {} to temporary directory", zipfile);
+    println!("Extracting {} to temporary directory: {}", zipfile, temp_dir.path().display());
 
     // Open the zip file
     let file = File::open(zipfile)?;
@@ -323,8 +430,8 @@ pub fn run_from_zip(
 
     println!("Running: uv {}", cmd_args.join(" "));
 
-    // Run the script using uv
-    let status = Command::new("uv").args(&cmd_args).status()?;
+    // Run the script using uv (using our helper function)
+    let status = get_uv_command().args(&cmd_args).status()?;
 
     Ok(status.code().unwrap_or(1))
 }

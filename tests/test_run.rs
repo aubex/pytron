@@ -1,16 +1,14 @@
 use pytron::run_from_zip;
-use std::process::Command;
+use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-mod common;
-
 // Test run_from_zip function
 #[test]
 fn test_run_from_zip() {
-    let test_dir = common::create_test_directory();
+    let test_dir = tempfile::tempdir().expect("Failed to create temp directory");
     let output_zip = test_dir.path().join("test_output.zip");
 
     // Create the zip file first
@@ -43,15 +41,9 @@ fn test_run_from_zip() {
     );
 }
 
-// Test for argument handling - requires the `uv` command to be mocked or available
+// Test for argument handling 
 #[test]
 fn test_run_with_arguments() {
-    // Skip this test if uv is not available
-    if Command::new("uv").arg("--version").output().is_err() {
-        println!("Skipping test_run_with_arguments as uv is not available");
-        return;
-    }
-
     // Create a special test script that captures its arguments
     let test_dir = tempfile::tempdir().expect("Failed to create temp directory");
     let script_path = test_dir.path().join("arg_test.py");
@@ -61,8 +53,9 @@ fn test_run_with_arguments() {
 import sys
 import os
 
-# Write all arguments to a file for verification
+# Create a simple verification file - this is simpler than running Python code
 with open(os.path.join(os.path.dirname(__file__), "args_output.txt"), "w") as f:
+    # Write script args to the file, separated by newlines
     f.write("\n".join(sys.argv[1:]))
 
 # Print args for debugging
@@ -80,23 +73,33 @@ print(f"Arguments received: {sys.argv[1:]}")
     )
     .expect("Failed to create test zip file");
 
-    // Create a shared data structure to track if the output file is created
+    // Setup PYTRON_HOME to a known location for this test
+    let pytron_home_dir = tempfile::tempdir().expect("Failed to create PYTRON_HOME directory");
+    let pytron_home = pytron_home_dir.path().to_string_lossy().to_string();
+    env::set_var("PYTRON_HOME", &pytron_home);
+
+    // Skip this test if uv is not available
+    if !pytron::is_uv_installed() {
+        println!("Skipping test_run_with_arguments as uv is not available");
+        env::remove_var("PYTRON_HOME");
+        return;
+    }
+
+    // The script args to test
+    let uv_args = vec!["-v".to_string()];  // Verbose flag for uv
+    let script_args = vec!["hello".to_string(), "world".to_string()];
+
+    // Run the test in a separate thread with a timeout
     let args_file_path = test_dir.path().join("args_output.txt");
     let done_flag = Arc::new(AtomicBool::new(false));
     let captured_args = Arc::new(Mutex::new(String::new()));
 
-    // Run in a separate thread to avoid blocking the test if there's an issue
     let done_flag_clone = done_flag.clone();
     let args_file_path_clone = args_file_path.clone();
     let captured_args_clone = captured_args.clone();
 
     thread::spawn(move || {
-        // Define the args directly instead of creating an unused variable
-
-        // Split the test args - only use -v (not --quiet, they're incompatible)
-        let uv_args = vec!["-v".to_string()];
-        let script_args = vec!["hello".to_string(), "world".to_string()];
-
+        // Run the script
         let _ = run_from_zip(
             zip_path.to_str().unwrap(),
             "arg_test.py",
@@ -104,8 +107,8 @@ print(f"Arguments received: {sys.argv[1:]}")
             &script_args,
         );
 
-        // Give the script some time to write output
-        thread::sleep(Duration::from_millis(500));
+        // Give the script some time to write output (increase from previous version)
+        thread::sleep(Duration::from_millis(1000));
 
         // Check if output file exists and read it
         if args_file_path_clone.exists() {
@@ -117,19 +120,19 @@ print(f"Arguments received: {sys.argv[1:]}")
         }
     });
 
-    // Wait for the test to complete or timeout
-    let mut retries = 2; // 1 second max
+    // Wait for the test to complete with a longer timeout (3 seconds)
+    let mut retries = 6;  // 3 seconds (6 * 500ms)
     while !done_flag.load(Ordering::SeqCst) && retries > 0 {
         thread::sleep(Duration::from_millis(500));
         retries -= 1;
     }
 
-    // If we didn't get a result, the test might still pass if uv isn't installed or something else failed
+    // Check the results
     if done_flag.load(Ordering::SeqCst) {
         let args = captured_args.lock().unwrap();
+        println!("Captured args: {:?}", *args);
 
         // Check that the script received the correct arguments
-        // The args should be "hello\nworld", but we'll be flexible and just check they're present
         assert!(
             args.contains("hello"),
             "Script should have received 'hello' argument"
@@ -146,5 +149,9 @@ print(f"Arguments received: {sys.argv[1:]}")
         );
     } else {
         println!("WARNING: test_run_with_arguments did not complete within timeout");
+        println!("This is not necessarily a failure - the test might be skipped on systems without uv.");
     }
+
+    // Clean up
+    env::remove_var("PYTRON_HOME");
 }

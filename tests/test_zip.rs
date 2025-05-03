@@ -1,10 +1,45 @@
 use pytron::zip_directory;
-use std::fs::File;
-use std::fs;
+use std::fs::{self, File};
 use std::io::Write;
+use tempfile::tempdir;
 
-mod common;
-use common::create_test_directory;
+// Helper function to create a test directory with files
+fn create_test_directory() -> tempfile::TempDir {
+    let dir = tempdir().expect("Failed to create temp directory");
+
+    // Create a simple Python script
+    let script_path = dir.path().join("main.py");
+    let mut script_file = File::create(&script_path).expect("Failed to create main.py");
+    script_file
+        .write_all(b"print('Hello from test!')\n")
+        .expect("Failed to write to main.py");
+
+    // Create a subdirectory with another file
+    let subdir_path = dir.path().join("subdir");
+    fs::create_dir(&subdir_path).expect("Failed to create subdirectory");
+
+    let subfile_path = subdir_path.join("helper.py");
+    let mut subfile = File::create(&subfile_path).expect("Failed to create helper.py");
+    subfile
+        .write_all(b"def helper():\n    return 'Helper function'\n")
+        .expect("Failed to write to helper.py");
+
+    // Create a .gitignore file
+    let gitignore_path = dir.path().join(".gitignore");
+    let mut gitignore_file = File::create(&gitignore_path).expect("Failed to create .gitignore");
+    gitignore_file
+        .write_all(b"*.log\n*.tmp\n")
+        .expect("Failed to write to .gitignore");
+
+    // Create files that should be ignored
+    let ignored_file = dir.path().join("ignored.log");
+    let mut ignored = File::create(&ignored_file).expect("Failed to create ignored.log");
+    ignored
+        .write_all(b"This file should be ignored\n")
+        .expect("Failed to write to ignored.log");
+
+    dir
+}
 
 // Test zip_directory function
 #[test]

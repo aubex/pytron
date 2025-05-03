@@ -93,6 +93,18 @@ fn main() {
             // It's a script, run directly
             println!("Running script directly: {}", zipfile);
 
+            // Check if uv is installed and install if needed
+            if !pytron::is_uv_installed() {
+                println!("uv not found. Attempting to install...");
+                match pytron::install_uv() {
+                    Ok(_) => println!("uv installed successfully."),
+                    Err(e) => {
+                        eprintln!("Failed to install uv: {}", e);
+                        exit(1);
+                    }
+                }
+            }
+
             // In this case, zipfile is actually the script path
             let mut cmd_args = vec!["run".to_string()];
 
@@ -107,8 +119,8 @@ fn main() {
 
             println!("Running: uv {}", cmd_args.join(" "));
 
-            // Run the script using uv
-            match std::process::Command::new("uv").args(&cmd_args).status() {
+            // Run the script using uv with our helper function
+            match pytron::get_uv_command().args(&cmd_args).status() {
                 Ok(status) => status.code().unwrap_or(1),
                 Err(err) => {
                     eprintln!("Error running script: {}", err);
@@ -141,6 +153,18 @@ fn main() {
                 uv_args,
                 script_args,
             } => {
+                // Check if uv is installed and install if needed
+                if !pytron::is_uv_installed() {
+                    println!("uv not found. Attempting to install...");
+                    match pytron::install_uv() {
+                        Ok(_) => println!("uv installed successfully."),
+                        Err(e) => {
+                            eprintln!("Failed to install uv: {}", e);
+                            exit(1);
+                        }
+                    }
+                }
+                
                 // This branch is for when using clap with -- to pass args
                 let exit_code = match pytron::run_from_zip(zipfile, script, uv_args, script_args) {
                     Ok(code) => code,
