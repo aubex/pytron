@@ -1,3 +1,4 @@
+use serial_test::serial;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -5,6 +6,7 @@ use tempfile::tempdir;
 
 // Test PYTRON_HOME directory functions
 #[test]
+#[serial]
 fn test_get_pytron_home_default() {
     // Clear PYTRON_HOME if it exists
     env::remove_var("PYTRON_HOME");
@@ -23,6 +25,7 @@ fn test_get_pytron_home_default() {
 }
 
 #[test]
+#[serial]
 fn test_get_pytron_home_custom() {
     // Clear any existing PYTRON_HOME
     env::remove_var("PYTRON_HOME");
