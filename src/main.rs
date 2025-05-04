@@ -3,6 +3,24 @@ use pytron::{Cli, Commands};
 use std::{env, process::exit};
 
 fn main() {
+    // On Windows, check for long path support at startup
+    #[cfg(windows)]
+    {
+        match pytron::check_and_enable_long_path_support() {
+            Ok(true) => {
+                // Long path support is enabled, continue normally
+            }
+            Ok(false) => {
+                println!("Long path support has been enabled, but you need to reboot for it to take effect.");
+                println!("After rebooting, run this command again.");
+            }
+            Err(e) => {
+                println!("Warning: Could not check or enable long path support: {}", e);
+                println!("You may encounter issues with long file paths.");
+            }
+        }
+    }
+    
     let args: Vec<String> = env::args().collect();
 
     // Check if we're using the run command

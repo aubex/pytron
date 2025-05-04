@@ -10,6 +10,11 @@ use tempfile;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
+#[cfg(windows)]
+use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE};
+#[cfg(windows)]
+use winreg::RegKey;
+
 // CLI types are already available for use in main.rs and tests
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -474,12 +479,96 @@ pub fn download_uv() -> io::Result<PathBuf> {
 }
 
 
+/// Checks if Windows long path support is enabled and enables it if needed.
+/// Returns true if long path support is enabled after the function call,
+/// false if it couldn't be enabled (and would require a system reboot).
+#[cfg(windows)]
+pub fn check_and_enable_long_path_support() -> io::Result<bool> {
+    // Check if long path support is already enabled
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let filesystem_key = hklm.open_subkey_with_flags(
+        "SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+        KEY_READ,
+    )?;
+    
+    // Check if LongPathsEnabled value exists and is set to 1
+    let long_paths_enabled: u32 = filesystem_key
+        .get_value("LongPathsEnabled")
+        .unwrap_or(0);
+    
+    if long_paths_enabled == 1 {
+        // Long path support is already enabled
+        println!("Windows long path support is enabled.");
+        return Ok(true);
+    }
+    
+    // Long path support is not enabled, try to enable it
+    println!("Windows long path support is not enabled. Attempting to enable it...");
+    
+    // Try to open the key with write permissions
+    match hklm.open_subkey_with_flags(
+        "SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+        KEY_WRITE,
+    ) {
+        Ok(filesystem_key_write) => {
+            // Set LongPathsEnabled to 1
+            match filesystem_key_write.set_value("LongPathsEnabled", &1u32) {
+                Ok(_) => {
+                    println!("Successfully enabled Windows long path support.");
+                    println!("NOTE: You may need to reboot your system for the change to take effect.");
+                    // Return false because a reboot is needed
+                    Ok(false)
+                }
+                Err(e) => {
+                    println!("Failed to enable Windows long path support: {}", e);
+                    println!("To enable it manually, run PowerShell as Administrator and execute:");
+                    println!("Set-ItemProperty -Path \"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\" -Name \"LongPathsEnabled\" -Value 1");
+                    println!("Then reboot your system.");
+                    Err(io::Error::new(io::ErrorKind::PermissionDenied, e))
+                }
+            }
+        }
+        Err(e) => {
+            println!("Failed to access registry with write permissions: {}", e);
+            println!("To enable long path support manually, run PowerShell as Administrator and execute:");
+            println!("Set-ItemProperty -Path \"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\" -Name \"LongPathsEnabled\" -Value 1");
+            println!("Then reboot your system.");
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, e))
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub fn check_and_enable_long_path_support() -> io::Result<bool> {
+    // Not applicable on non-Windows platforms
+    Ok(true)
+}
+
 pub fn run_from_zip(
     zipfile: &str,
     script_path: &str,
     uv_args: &[String],
     script_args: &[String],
 ) -> io::Result<i32> {
+    // On Windows, check for long path support
+    #[cfg(windows)]
+    {
+        match check_and_enable_long_path_support() {
+            Ok(true) => {
+                // Long path support is enabled, continue normally
+            }
+            Ok(false) => {
+                // Long path support was enabled, but requires reboot
+                println!("Long path support has been enabled, but you need to reboot for it to take effect.");
+                println!("After rebooting, run this command again.");
+            }
+            Err(e) => {
+                println!("Warning: Could not check or enable long path support: {}", e);
+                println!("You may encounter issues with long file paths.");
+            }
+        }
+    }
+    
     // Create a temporary directory for extraction inside PYTRON_HOME
     // Use our centralized get_pytron_home function for consistency
     let pytron_home = get_pytron_home();
