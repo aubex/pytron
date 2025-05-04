@@ -93,10 +93,16 @@ fn main() {
             // It's a script, run directly
             println!("Running script directly: {}", zipfile);
 
-            // Check if uv is installed
+            // Check if uv is installed or download it if needed
             if !pytron::is_uv_installed() {
-                eprintln!("uv not found. Please install uv (https://github.com/astral-sh/uv) to run Python scripts.");
-                exit(1);
+                println!("uv not found. Attempting to download...");
+                match pytron::download_uv() {
+                    Ok(path) => println!("Downloaded uv to: {}", path.display()),
+                    Err(err) => {
+                        eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
+                        exit(1);
+                    }
+                }
             }
 
             // In this case, zipfile is actually the script path
@@ -147,10 +153,16 @@ fn main() {
                 uv_args,
                 script_args,
             } => {
-                // Check if uv is installed
+                // Check if uv is installed or download it if needed
                 if !pytron::is_uv_installed() {
-                    eprintln!("uv not found. Please install uv (https://github.com/astral-sh/uv) to run Python scripts.");
-                    exit(1);
+                    println!("uv not found. Attempting to download...");
+                    match pytron::download_uv() {
+                        Ok(path) => println!("Downloaded uv to: {}", path.display()),
+                        Err(err) => {
+                            eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
+                            exit(1);
+                        }
+                    }
                 }
                 
                 // This branch is for when using clap with -- to pass args

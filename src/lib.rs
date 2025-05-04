@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use ignore::WalkBuilder;
+use reqwest::blocking::Client;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -247,9 +248,51 @@ pub fn zip_directory(
     Ok(())
 }
 
+/// The current uv version to download
+pub const UV_VERSION: &str = "0.7.2";
+
+/// Get the download URL for the current platform
+pub fn get_uv_download_url() -> Option<String> {
+    let base_url = format!("https://github.com/astral-sh/uv/releases/download/{}", UV_VERSION);
+    
+    if cfg!(target_os = "windows") {
+        if cfg!(target_arch = "x86_64") {
+            Some(format!("{}/uv-x86_64-pc-windows-msvc.zip", base_url))
+        } else if cfg!(target_arch = "aarch64") {
+            Some(format!("{}/uv-aarch64-pc-windows-msvc.zip", base_url))
+        } else {
+            None
+        }
+    } else if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "x86_64") {
+            Some(format!("{}/uv-x86_64-apple-darwin.tar.gz", base_url))
+        } else if cfg!(target_arch = "aarch64") {
+            Some(format!("{}/uv-aarch64-apple-darwin.tar.gz", base_url))
+        } else {
+            None
+        }
+    } else if cfg!(target_os = "linux") {
+        if cfg!(target_arch = "x86_64") {
+            Some(format!("{}/uv-x86_64-unknown-linux-gnu.tar.gz", base_url))
+        } else if cfg!(target_arch = "aarch64") {
+            Some(format!("{}/uv-aarch64-unknown-linux-gnu.tar.gz", base_url))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 /// Checks if uv is installed and accessible in PATH
 pub fn is_uv_installed() -> bool {
-    Command::new("uv").arg("--version").output().is_ok()
+    // First check if it's in PATH
+    if Command::new("uv").arg("--version").output().is_ok() {
+        return true;
+    }
+    
+    // Then check if we've downloaded it previously
+    get_uv_path().exists()
 }
 
 /// Gets the pytron home directory path
@@ -290,10 +333,153 @@ pub fn get_uv_path() -> PathBuf {
 
 /// Creates a command for uv, using installed path if available or custom path if not
 pub fn get_uv_command() -> Command {
-    if is_uv_installed() {
+    if Command::new("uv").arg("--version").output().is_ok() {
+        // If uv is in PATH, use it directly
         Command::new("uv")
     } else {
+        // Otherwise use our downloaded copy
         Command::new(get_uv_path())
+    }
+}
+
+/// Download and install uv
+pub fn download_uv() -> io::Result<PathBuf> {
+    let pytron_home = get_pytron_home();
+    
+    // Create pytron home directory if it doesn't exist
+    fs::create_dir_all(&pytron_home)?;
+    
+    // Determine the target path
+    let target_path = if cfg!(windows) {
+        pytron_home.join("uv.exe")
+    } else {
+        pytron_home.join("uv")
+    };
+    
+    // If uv is already downloaded, just return the path
+    if target_path.exists() {
+        return Ok(target_path);
+    }
+    
+    // Get download URL for current platform
+    let download_url = get_uv_download_url().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Unsupported platform for uv download",
+        )
+    })?;
+    
+    println!("Downloading uv {} from: {}", UV_VERSION, download_url);
+    
+    // Create a temporary file for the download
+    let temp_dir = tempfile::Builder::new()
+        .prefix("pytron_download_")
+        .tempdir_in(&pytron_home)?;
+    
+    let archive_path = if download_url.ends_with(".zip") {
+        temp_dir.path().join("uv.zip")
+    } else {
+        temp_dir.path().join("uv.tar.gz")
+    };
+    
+    // Download the file
+    let client = Client::new();
+    let response = client.get(&download_url).send().map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, format!("Failed to download uv: {}", e))
+    })?;
+    
+    if !response.status().is_success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to download uv: HTTP {}", response.status()),
+        ));
+    }
+    
+    // Save the file
+    let content = response.bytes().map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, format!("Failed to read response body: {}", e))
+    })?;
+    
+    let mut file = File::create(&archive_path)?;
+    file.write_all(&content)?;
+    
+    // Extract the binary
+    if download_url.ends_with(".zip") {
+        // Extract zip file
+        let file = File::open(&archive_path)?;
+        let mut archive = ZipArchive::new(file)?;
+        
+        // Find the uv binary in the archive
+        let binary_path = if cfg!(windows) { "uv.exe" } else { "uv" };
+        
+        // Try to extract uv binary
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            let outpath = temp_dir.path().join(file.name());
+            
+            if file.name().ends_with(binary_path) {
+                // Found the binary, extract it
+                let mut outfile = File::create(&outpath)?;
+                io::copy(&mut file, &mut outfile)?;
+                
+                // Make it executable on Unix
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mut perms = fs::metadata(&outpath)?.permissions();
+                    perms.set_mode(0o755);
+                    fs::set_permissions(&outpath, perms)?;
+                }
+                
+                // Move to final location
+                fs::rename(&outpath, &target_path)?;
+                
+                return Ok(target_path);
+            }
+        }
+        
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Could not find uv binary in downloaded archive",
+        ))
+    } else {
+        // Extract tar.gz file
+        let file = File::open(&archive_path)?;
+        let decompressed = flate2::read::GzDecoder::new(file);
+        let mut archive = tar::Archive::new(decompressed);
+        
+        // Extract to temp directory
+        archive.unpack(temp_dir.path())?;
+        
+        // Find the uv binary in the extracted files
+        let binary_name = if cfg!(windows) { "uv.exe" } else { "uv" };
+        
+        // Search for the binary in extracted files
+        let binary_path = walkdir::WalkDir::new(temp_dir.path())
+            .into_iter()
+            .filter_map(Result::ok)
+            .find(|entry| entry.file_name() == binary_name);
+        
+        if let Some(binary_path) = binary_path {
+            // Make it executable on Unix
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = fs::metadata(binary_path.path())?.permissions();
+                perms.set_mode(0o755);
+                fs::set_permissions(binary_path.path(), perms)?;
+            }
+            
+            // Move to final location
+            fs::rename(binary_path.path(), &target_path)?;
+            
+            Ok(target_path)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Could not find uv binary in downloaded archive",
+            ))
+        }
     }
 }
 
@@ -385,12 +571,18 @@ pub fn run_from_zip(
 
     println!("Running: uv {}", cmd_args.join(" "));
 
-    // Check if uv is installed
+    // Check if uv is installed or download it
     if !is_uv_installed() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "uv not found. Please install uv (https://github.com/astral-sh/uv) to run Python scripts."
-        ));
+        println!("uv not found. Attempting to download...");
+        match download_uv() {
+            Ok(path) => println!("Downloaded uv to: {}", path.display()),
+            Err(err) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err)
+                ));
+            }
+        }
     }
 
     // Run the script using uv (using our helper function)
