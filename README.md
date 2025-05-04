@@ -16,12 +16,12 @@ Pytron is a lightning-fast CLI tool that turns Python scripts into portable, dep
 
 ### Package your Python project:
 ```bash
-pytron zip -o myapp.zip
+pytron zip
 ```
 
 ### Run it anywhere:
 ```bash
-pytron run myapp.zip main.py
+pytron run
 ```
 
 That's it! No virtual environments, no pip installs, no "works on my machine" syndrome.
