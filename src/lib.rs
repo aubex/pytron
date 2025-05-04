@@ -284,14 +284,9 @@ pub fn get_uv_download_url() -> Option<String> {
     }
 }
 
-/// Checks if uv is installed and accessible in PATH
+/// Checks if uv is installed in PYTRON_HOME
 pub fn is_uv_installed() -> bool {
-    // First check if it's in PATH
-    if Command::new("uv").arg("--version").output().is_ok() {
-        return true;
-    }
-    
-    // Then check if we've downloaded it previously
+    // Only check if it exists in PYTRON_HOME
     get_uv_path().exists()
 }
 
@@ -331,15 +326,10 @@ pub fn get_uv_path() -> PathBuf {
     }
 }
 
-/// Creates a command for uv, using installed path if available or custom path if not
+/// Creates a command for uv, always using the version in PYTRON_HOME
 pub fn get_uv_command() -> Command {
-    if Command::new("uv").arg("--version").output().is_ok() {
-        // If uv is in PATH, use it directly
-        Command::new("uv")
-    } else {
-        // Otherwise use our downloaded copy
-        Command::new(get_uv_path())
-    }
+    // Always use our own copy from PYTRON_HOME
+    Command::new(get_uv_path())
 }
 
 /// Download and install uv
