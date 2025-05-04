@@ -84,6 +84,7 @@ print(f"Arguments received: {sys.argv[1:]}")
     // Skip this test if uv is not available
     if !pytron::is_uv_installed() {
         println!("Skipping test_run_with_arguments as uv is not available");
+        println!("Please install uv (https://github.com/astral-sh/uv) to run this test");
         env::remove_var("PYTRON_HOME");
         return;
     }

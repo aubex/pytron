@@ -297,62 +297,6 @@ pub fn get_uv_command() -> Command {
     }
 }
 
-/// Install uv to the pytron home directory
-pub fn install_uv() -> io::Result<()> {
-    let install_path = get_pytron_home();
-    
-    // Create the directory if it doesn't exist
-    fs::create_dir_all(&install_path)?;
-    
-    println!("Installing uv to {}", install_path.display());
-    
-    // Platform-specific installation
-    #[cfg(windows)]
-    {
-        // Windows installation using PowerShell
-        let ps_command = format!(
-            "powershell -ExecutionPolicy ByPass -c {{$env:UV_UNMANAGED_INSTALL = \"{}\"; irm https://astral.sh/uv/install.ps1 | iex}}",
-            install_path.display()
-        );
-        
-        let status = Command::new("cmd")
-            .args(&["/C", &ps_command])
-            .status()?;
-            
-        if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to install uv on Windows"
-            ));
-        }
-    }
-    
-    #[cfg(not(windows))]
-    {
-        // Unix installation using curl and sh
-        let install_cmd = format!(
-            "curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=\"{}\" sh",
-            install_path.display()
-        );
-        
-        let status = Command::new("sh")
-            .args(["-c", &install_cmd])
-            .status()?;
-            
-        if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to install uv on Unix"
-            ));
-        }
-    }
-    
-    // Show the expected path of the uv executable
-    let uv_path = get_uv_path();
-    println!("Successfully installed uv to {}", install_path.display());
-    println!("uv command path: {}", uv_path.display());
-    Ok(())
-}
 
 pub fn run_from_zip(
     zipfile: &str,
@@ -441,18 +385,12 @@ pub fn run_from_zip(
 
     println!("Running: uv {}", cmd_args.join(" "));
 
-    // Check if uv is installed and install if needed
+    // Check if uv is installed
     if !is_uv_installed() {
-        println!("uv not found. Attempting to install...");
-        match install_uv() {
-            Ok(_) => println!("uv installed successfully."),
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Failed to install uv: {}", e)
-                ));
-            }
-        }
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "uv not found. Please install uv (https://github.com/astral-sh/uv) to run Python scripts."
+        ));
     }
 
     // Run the script using uv (using our helper function)
