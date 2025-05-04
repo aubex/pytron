@@ -18,4 +18,4 @@ walkdir = "2.4"
 
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]
-winreg = "0.52"
+winreg = "0.55"
