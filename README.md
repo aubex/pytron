@@ -28,9 +28,7 @@ That's it! No virtual environments, no pip installs, no "works on my machine" sy
 
 ## 🔧 Installation
 
-```bash
-cargo install pytron
-```
+Download the latest release package for your operating system from the [GitHub Releases page](https://github.com/aubex/automizor-pytron/releases).
 
 ## 🧰 Key Features
 
