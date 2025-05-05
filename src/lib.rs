@@ -47,7 +47,7 @@ pub enum Commands {
     },
 
     #[command(
-        override_usage = "pytron run [UV_ARGS] [ZIPFILE] [PASSWORD] [SCRIPT] [SCRIPT_ARGS]...",
+        override_usage = "pytron run [UV_ARGS] [ZIPFILE] [SCRIPT] [SCRIPT_ARGS]...",
         about = "Run a script - either directly or from a zip archive",
         long_about = "Run a script - either directly or from a zip archive\n\nArguments are separated using a double-dash (--) or by specifying a script/zipfile path:\n  - Arguments before -- or before the zipfile path are passed to uv run\n  - Arguments after -- or after the zipfile path are passed to the script\n\nSpecial flags:\n  -h/--help: Show this help message (pytron's help)\n  -hh/--uv-run-help: Show uv's help message"
     )]
@@ -69,6 +69,8 @@ pub enum Commands {
 
         /// Additional AES decryption password
         #[arg(
+            short,
+            long,
             help="AES Decryption password to decrypt the given ZIP file",
             long_help="AES Decryption password to decrypt the given ZIP file\nThis depends on if the file has been encrypted before\n Example: \n --password hello-world")]
         password: Option<String>,
