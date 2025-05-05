@@ -47,7 +47,7 @@ fn main() {
 
         while i < args.len() {
 
-            if args[i] == "--password" {
+            if args[i] == "--password" || args[i] == "-p" {
                 // next element must be the password
                 if i + 1 < args.len() {
                     password = Some(args[i + 1].clone());

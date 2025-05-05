@@ -18,6 +18,11 @@ This example demonstrates how to use the `pytron` tool to:
 pytron zip -o example.zip
 ```
 
+With AES encryption
+```
+pytron zip -o example.zip -p hello-world
+```
+
 ### Running scripts
 
 Run a script directly:
@@ -43,6 +48,11 @@ pytron run main.py --custom-flag
 Run a script from a zip file:
 ```
 pytron run example.zip main.py
+```
+
+Run a script from an encrypted zip file:
+```
+pytron run example.zip main.py --password your-password
 ```
 
 Pass arguments to both uv and the script:
