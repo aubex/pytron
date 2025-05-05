@@ -42,8 +42,22 @@ fn main() {
         let mut i = 2;
         let mut found_separator = false;
         let mut found_script_name = false;
+        // Password for decrypting the ZIP file
+        let mut password = None;
 
         while i < args.len() {
+
+            if args[i] == "--password" {
+                // next element must be the password
+                if i + 1 < args.len() {
+                    password = Some(args[i + 1].clone());
+                    i += 2;
+                    continue;
+                } else {
+                    eprintln!("Error: `{}` requires a value", args[i]);
+                    std::process::exit(1);
+                }
+            }
             // Check for the double-dash separator
             if args[i] == "--" && !found_separator {
                 found_separator = true;
@@ -100,7 +114,7 @@ fn main() {
                 .collect();
 
             // Pass uv_args and script_args separately
-            match pytron::run_from_zip(&zipfile, &script, &uv_args, &filtered_script_args) {
+            match pytron::run_from_zip(&zipfile, password.as_ref(), &script, &uv_args, &filtered_script_args) {
                 Ok(code) => code,
                 Err(err) => {
                     eprintln!("Error running from zip: {}", err);
@@ -157,9 +171,10 @@ fn main() {
                 directory,
                 output,
                 ignore_patterns,
+                password,
             } => {
                 if let Err(err) =
-                    pytron::zip_directory(directory, output, ignore_patterns.as_ref())
+                    pytron::zip_directory(directory, output, ignore_patterns.as_ref(), password.as_ref())
                 {
                     eprintln!("Error zipping directory: {}", err);
                     exit(1);
@@ -167,6 +182,7 @@ fn main() {
             }
             Commands::Run {
                 zipfile,
+                password,
                 script,
                 uv_args,
                 script_args,
@@ -184,7 +200,7 @@ fn main() {
                 }
                 
                 // This branch is for when using clap with -- to pass args
-                let exit_code = match pytron::run_from_zip(zipfile, script, uv_args, script_args) {
+                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), script, uv_args, script_args) {
                     Ok(code) => code,
                     Err(err) => {
                         eprintln!("Error running from zip: {}", err);

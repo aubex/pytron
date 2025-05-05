@@ -6,7 +6,6 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tempfile;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
@@ -41,6 +40,10 @@ pub enum Commands {
         /// Pass an empty string to override all default excludes
         #[arg(short, long, value_delimiter = ',')]
         ignore_patterns: Option<Vec<String>>,
+
+        /// Additional AES encryption password
+        #[arg(short, long)]
+        password: Option<String>
     },
 
     #[command(
@@ -56,6 +59,7 @@ pub enum Commands {
         )]
         zipfile: String,
 
+        
         #[arg(
             default_value = "main.py",
             help = "Script to run from the zip (if zipfile is a zip archive)",
@@ -63,6 +67,12 @@ pub enum Commands {
         )]
         script: String,
 
+        /// Additional AES decryption password
+        #[arg(
+            help="AES Decryption password to decrypt the given ZIP file",
+            long_help="AES Decryption password to decrypt the given ZIP file\nThis depends on if the file has been encrypted before\n Example: \n --password hello-world")]
+        password: Option<String>,
+        
         #[arg(
             value_name = "UV_ARGS",
             allow_hyphen_values = true,
@@ -81,6 +91,7 @@ pub enum Commands {
             long_help = "Arguments passed to your Python script\nThese appear after the -- separator or after the zipfile path\nExamples:\n  --verbose\n  --config=config.json\n  -o output.txt"
         )]
         script_args: Vec<String>,
+
     },
 }
 
@@ -88,6 +99,7 @@ pub fn zip_directory(
     directory: &str,
     output: &str,
     ignore_patterns: Option<&Vec<String>>,
+    password: Option<&String>
 ) -> io::Result<()> {
     let dir_path = Path::new(directory);
     let output_path = Path::new(output);
@@ -173,7 +185,12 @@ pub fn zip_directory(
         }
     }
 
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let mut options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+
+    if let Some(pwd) = password {
+            options = options.with_aes_encryption(zip::AesMode::Aes256, pwd);
+    }
     for result in walker {
         match result {
             Ok(entry) => {
@@ -546,6 +563,7 @@ pub fn check_and_enable_long_path_support() -> io::Result<bool> {
 
 pub fn run_from_zip(
     zipfile: &str,
+    password: Option<&String>,
     script_path: &str,
     uv_args: &[String],
     script_args: &[String],
@@ -588,9 +606,15 @@ pub fn run_from_zip(
     let file = File::open(zipfile)?;
     let mut archive = ZipArchive::new(file)?;
 
+    
+    
     // Extract all files
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
+        let mut file = if let Some(pwd) = password {
+            archive.by_index_decrypt(i, pwd.as_bytes())?
+        } else {
+            archive.by_index(i)?
+        };
         // Normalize file path for cross-platform compatibility
         let normalized_name = file
             .name()

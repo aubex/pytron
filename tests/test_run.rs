@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use std::fs::File;
 
 // Test run_from_zip function
 #[test]
@@ -16,6 +17,7 @@ fn test_run_from_zip() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
+        None
     )
     .expect("Failed to create test zip file");
 
@@ -23,9 +25,10 @@ fn test_run_from_zip() {
     // but we can test the extraction part by checking for errors
     let result = run_from_zip(
         output_zip.to_str().unwrap(),
+        None,
         "non_existent.py", // This should cause the function to return an error
         &[],               // uv_args
-        &[],               // script_args
+        &[],               // script_args#
     );
 
     // Verify we get the expected error for a non-existent script
@@ -73,6 +76,7 @@ print(f"Arguments received: {sys.argv[1:]}")
         test_dir.path().to_str().unwrap(),
         zip_path.to_str().unwrap(),
         None,
+        None
     )
     .expect("Failed to create test zip file");
 
@@ -106,6 +110,7 @@ print(f"Arguments received: {sys.argv[1:]}")
         // Run the script
         let _ = run_from_zip(
             zip_path.to_str().unwrap(),
+            None,
             "arg_test.py",
             &uv_args,
             &script_args,
@@ -159,4 +164,74 @@ print(f"Arguments received: {sys.argv[1:]}")
 
     // Clean up
     env::remove_var("PYTRON_HOME");
+}
+
+#[test]
+fn test_run_with_password() {
+    // First, make sure to clean up any existing PYTRON_HOME from previous tests
+    env::remove_var("PYTRON_HOME");
+
+    // Create a special test script that captures its arguments
+    let test_dir = tempfile::tempdir().expect("Failed to create temp directory");
+    let script_path = test_dir.path().join("password_test.py");
+
+    // Password to encrypt / decrypt files
+    let password = String::from("fooPass");
+
+    // This script will write all command line arguments to a file
+    let script_content = r#"
+print('Hello World')
+"#;
+
+    std::fs::write(&script_path, script_content).expect("Failed to create password_test.py");
+
+    // Create a zip file
+    let zip_path = test_dir.path().join("password_test.zip");
+    let _ = pytron::zip_directory(
+        test_dir.path().to_str().unwrap(),
+        zip_path.to_str().unwrap(),
+        None,
+        Some(&password)
+    )
+    .expect("Failed to create test zip file");
+
+    // Skip this test if uv is not available
+    if !pytron::is_uv_installed() {
+        println!("Skipping test_run_with_arguments as uv is not available");
+        println!("Please install uv (https://github.com/astral-sh/uv) to run this test");
+        env::remove_var("PYTRON_HOME");
+        return;
+    }
+
+    // The script args to test
+    let uv_args = vec!["-v".to_string()]; // Verbose flag for uv
+    let script_args = vec!["hello".to_string(), "world".to_string()];
+
+
+    let file = File::open(test_dir.path().join("password_test.zip")).expect("Failed to open zip file");
+    let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
+
+    let file_names: Vec<String> = (0..archive.len())
+        .map(|i| {
+            let name = archive.by_index_decrypt(i, password.as_bytes()).unwrap().name().to_string();
+            // Normalize backslashes to forward slashes for cross-platform compatibility
+            name.replace('\\', "/")
+        })
+        .collect();
+
+    assert!(
+        file_names.contains(&"password_test.py".to_string()),
+        "password_test.py is missing from the archive"
+    );
+
+        // Run the script
+        let result = run_from_zip(
+            zip_path.to_str().unwrap(),
+            Some(&password),
+            "password_test.py",
+            &uv_args,
+            &script_args,
+        );
+
+        assert!(result.is_ok())
 }
