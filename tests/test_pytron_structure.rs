@@ -87,6 +87,7 @@ fn test_run_from_zip_temp_directory_creation() {
         test_dir.path().to_str().unwrap(),
         zip_path.to_str().unwrap(),
         None,
+        None,
     ).expect("Failed to create test zip file");
     
     // Prepare for extraction path check and create it
@@ -99,6 +100,7 @@ fn test_run_from_zip_temp_directory_creation() {
     // Even if we can't run the script (no uv), the function should at least create the temp directory
     let _ = pytron::run_from_zip(
         zip_path.to_str().unwrap(),
+        None,
         "simple.py", 
         &[],
         &[],

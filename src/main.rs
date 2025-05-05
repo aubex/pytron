@@ -42,8 +42,22 @@ fn main() {
         let mut i = 2;
         let mut found_separator = false;
         let mut found_script_name = false;
+        // Password for decrypting the ZIP file
+        let mut password = None;
 
         while i < args.len() {
+
+            if args[i] == "--password" || args[i] == "-p" {
+                // next element must be the password
+                if i + 1 < args.len() {
+                    password = Some(args[i + 1].clone());
+                    i += 2;
+                    continue;
+                } else {
+                    eprintln!("Error: `{}` requires a value", args[i]);
+                    std::process::exit(1);
+                }
+            }
             // Check for the double-dash separator
             if args[i] == "--" && !found_separator {
                 found_separator = true;
@@ -70,8 +84,28 @@ fn main() {
             if args[i] == "--uv-run-help" || args[i] == "-hh" {
                 // Convert to standard help flag for uv
                 uv_args.push("--help".to_string());
-                i += 1;
-                continue;
+                // Skip zip file execution completely when -hh is used
+                println!("Running: uv run --help");
+                // Check if uv is installed or download it if needed
+                if !pytron::is_uv_installed() {
+                    println!("uv not found. Attempting to download...");
+                    match pytron::download_uv() {
+                        Ok(path) => println!("Downloaded uv to: {}", path.display()),
+                        Err(err) => {
+                            eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
+                            exit(1);
+                        }
+                    }
+                }
+                // Run uv directly with help flag
+                let status = pytron::get_uv_command().args(&["run", "--help"]).status();
+                match status {
+                    Ok(status) => exit(status.code().unwrap_or(1)),
+                    Err(err) => {
+                        eprintln!("Error running uv: {}", err);
+                        exit(1);
+                    }
+                }
             }
 
             // Everything else before separator or script name is a uv flag
@@ -100,7 +134,7 @@ fn main() {
                 .collect();
 
             // Pass uv_args and script_args separately
-            match pytron::run_from_zip(&zipfile, &script, &uv_args, &filtered_script_args) {
+            match pytron::run_from_zip(&zipfile, password.as_ref(), &script, &uv_args, &filtered_script_args) {
                 Ok(code) => code,
                 Err(err) => {
                     eprintln!("Error running from zip: {}", err);
@@ -157,9 +191,10 @@ fn main() {
                 directory,
                 output,
                 ignore_patterns,
+                password,
             } => {
                 if let Err(err) =
-                    pytron::zip_directory(directory, output, ignore_patterns.as_ref())
+                    pytron::zip_directory(directory, output, ignore_patterns.as_ref(), password.as_ref())
                 {
                     eprintln!("Error zipping directory: {}", err);
                     exit(1);
@@ -167,6 +202,7 @@ fn main() {
             }
             Commands::Run {
                 zipfile,
+                password,
                 script,
                 uv_args,
                 script_args,
@@ -184,7 +220,7 @@ fn main() {
                 }
                 
                 // This branch is for when using clap with -- to pass args
-                let exit_code = match pytron::run_from_zip(zipfile, script, uv_args, script_args) {
+                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), script, uv_args, script_args) {
                     Ok(code) => code,
                     Err(err) => {
                         eprintln!("Error running from zip: {}", err);

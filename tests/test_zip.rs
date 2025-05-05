@@ -2,6 +2,7 @@ use pytron::zip_directory;
 use std::fs::{self, File};
 use std::io::Write;
 use tempfile::tempdir;
+use zip::result::ZipError;
 
 // Helper function to create a test directory with files
 fn create_test_directory() -> tempfile::TempDir {
@@ -52,6 +53,7 @@ fn test_zip_directory() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
+        None
     );
 
     // Verify the function succeeded
@@ -100,6 +102,127 @@ fn test_zip_directory() {
 }
 
 #[test]
+fn test_zip_directory_aes_encrypted() {
+    let test_dir = create_test_directory();
+    let output_zip = test_dir.path().join("test_output.zip");
+    let password = String::from("fooPass");
+
+    // Call the zip_directory function with default ignore patterns
+    let result = zip_directory(
+        test_dir.path().to_str().unwrap(),
+        output_zip.to_str().unwrap(),
+        None,
+        Some(&password)
+    );
+
+    // Verify the function succeeded
+    assert!(result.is_ok(), "zip_directory failed: {:?}", result.err());
+
+    // Verify the zip file was created
+    assert!(output_zip.exists(), "Zip file was not created");
+
+    // Open and verify the zip contents
+    let file = File::open(&output_zip).expect("Failed to open zip file");
+    let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
+
+    // Check file count (should be 3 files: main.py, .gitignore, subdir/helper.py)
+    assert_eq!(archive.len(), 3, "Zip archive should contain 3 files");
+
+    // Verify specific files are present
+    let file_names: Vec<String> = (0..archive.len())
+        .map(|i| {
+            let name = archive.by_index_decrypt(i, password.as_bytes()).unwrap().name().to_string();
+            // Normalize backslashes to forward slashes for cross-platform compatibility
+            name.replace('\\', "/")
+        })
+        .collect();
+
+    assert!(
+        file_names.contains(&"main.py".to_string()),
+        "main.py is missing from the archive"
+    );
+}
+
+#[test]
+fn test_zip_directory_aes_decryption_wrong_password() {
+    let test_dir = create_test_directory();
+    let output_zip = test_dir.path().join("test_output.zip");
+    let password = String::from("fooPass");
+    let wrong_password = String::from("wrongPassword");
+
+    // Call the zip_directory function with default ignore patterns
+    let result = zip_directory(
+        test_dir.path().to_str().unwrap(),
+        output_zip.to_str().unwrap(),
+        None,
+        Some(&password)
+    );
+
+    // Verify the function succeeded
+    assert!(result.is_ok(), "zip_directory failed: {:?}", result.err());
+
+    // Verify the zip file was created
+    assert!(output_zip.exists(), "Zip file was not created");
+
+    // Open and verify the zip contents
+    let file = File::open(&output_zip).expect("Failed to open zip file");
+    let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
+
+    // Check file count (should be 3 files: main.py, .gitignore, subdir/helper.py)
+    assert_eq!(archive.len(), 3, "Zip archive should contain 3 files");
+
+    // Verify specific files are present
+    let err = archive.by_index_decrypt(0, wrong_password.as_bytes()).err().unwrap();
+    assert!(
+        matches!(err, ZipError::InvalidPassword),
+        "Expected InvalidPassword, got {:?}",
+        err
+    );
+}
+
+#[test]
+fn test_zip_directory_aes_decryption_password_required() {
+    let test_dir = create_test_directory();
+    let output_zip = test_dir.path().join("test_output.zip");
+    let password = String::from("fooPass");
+
+    // Call the zip_directory function with default ignore patterns
+    let result = zip_directory(
+        test_dir.path().to_str().unwrap(),
+        output_zip.to_str().unwrap(),
+        None,
+        Some(&password)
+    );
+
+    // Verify the function succeeded
+    assert!(result.is_ok(), "zip_directory failed: {:?}", result.err());
+
+    // Verify the zip file was created
+    assert!(output_zip.exists(), "Zip file was not created");
+
+    // Open and verify the zip contents
+    let file = File::open(&output_zip).expect("Failed to open zip file");
+    let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip archive");
+
+    // Check file count (should be 3 files: main.py, .gitignore, subdir/helper.py)
+    assert_eq!(archive.len(), 3, "Zip archive should contain 3 files");
+
+    // Verify specific files are present
+    let err = archive.by_index(0).err().unwrap();
+    match err {
+        ZipError::UnsupportedArchive(msg) => {
+            assert_eq!(
+                msg,
+                "Password required to decrypt file",
+                "Unexpected UnsupportedArchive message"
+            );
+        }
+        _ => panic!("Expected UnsupportedArchive, got {:?}", err),
+    }
+}
+
+
+#[test]
 fn test_zip_directory_with_custom_ignore() {
     let test_dir = create_test_directory();
     
@@ -121,6 +244,7 @@ fn test_zip_directory_with_custom_ignore() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         custom_patterns.as_ref(),
+        None
     );
     
     // Verify the function succeeded
@@ -177,6 +301,7 @@ fn test_zip_directory_override_defaults() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         override_patterns.as_ref(),
+        None
     );
     
     // Verify the function succeeded
