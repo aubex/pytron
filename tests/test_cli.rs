@@ -89,7 +89,7 @@ fn test_cli_parsing() {
     }
 
     // Test the Run command with custom values (all in script_args)
-    let args = vec!["pytron", "run", "custom.zip", "custom.py", "fooPass", "arg1", "arg2"];
+    let args = vec!["pytron", "run", "-p", "fooPass", "custom.zip", "custom.py", "arg1", "arg2"];
     let cli = Cli::parse_from(args);
 
     if let Commands::Run {
