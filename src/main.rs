@@ -84,8 +84,28 @@ fn main() {
             if args[i] == "--uv-run-help" || args[i] == "-hh" {
                 // Convert to standard help flag for uv
                 uv_args.push("--help".to_string());
-                i += 1;
-                continue;
+                // Skip zip file execution completely when -hh is used
+                println!("Running: uv run --help");
+                // Check if uv is installed or download it if needed
+                if !pytron::is_uv_installed() {
+                    println!("uv not found. Attempting to download...");
+                    match pytron::download_uv() {
+                        Ok(path) => println!("Downloaded uv to: {}", path.display()),
+                        Err(err) => {
+                            eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
+                            exit(1);
+                        }
+                    }
+                }
+                // Run uv directly with help flag
+                let status = pytron::get_uv_command().args(&["run", "--help"]).status();
+                match status {
+                    Ok(status) => exit(status.code().unwrap_or(1)),
+                    Err(err) => {
+                        eprintln!("Error running uv: {}", err);
+                        exit(1);
+                    }
+                }
             }
 
             // Everything else before separator or script name is a uv flag
