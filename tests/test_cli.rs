@@ -2,13 +2,14 @@ use pytron::{Cli, Commands};
 use clap::Parser;
 
 // Test CLI argument parsing
+// TODO: Add verify / sign to asserts
 #[test]
 fn test_cli_parsing() {
     // Test the Zip command with defaults
     let args = vec!["pytron", "zip"];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -25,7 +26,7 @@ fn test_cli_parsing() {
     let args = vec!["pytron", "zip", "--ignore-patterns", "node_modules,*.log,*.tmp"];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -47,7 +48,7 @@ fn test_cli_parsing() {
     let args = vec!["pytron", "zip", "--ignore-patterns", ""];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -70,6 +71,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
+        verify,
         password,
         uv_args,
         script_args,
@@ -95,6 +97,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
+        verify,
         password,
         uv_args,
         script_args,
@@ -125,6 +128,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
+        verify,
         password,
         uv_args,
         script_args,

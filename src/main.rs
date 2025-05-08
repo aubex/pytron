@@ -44,8 +44,21 @@ fn main() {
         let mut found_script_name = false;
         // Password for decrypting the ZIP file
         let mut password = None;
+        let mut verification_path = None;
 
         while i < args.len() {
+
+            if args[i] == "--verify" {
+                // next element must be the password
+                if i + 1 < args.len() {
+                    verification_path = Some(args[i + 1].clone());
+                    i += 2;
+                    continue;
+                } else {
+                    eprintln!("Error: `{}` requires a value", args[i]);
+                    std::process::exit(1);
+                }
+            }
 
             if args[i] == "--password" || args[i] == "-p" {
                 // next element must be the password
@@ -98,7 +111,7 @@ fn main() {
                     }
                 }
                 // Run uv directly with help flag
-                let status = pytron::get_uv_command().args(&["run", "--help"]).status();
+                let status = pytron::get_uv_command().args(["run", "--help"]).status();
                 match status {
                     Ok(status) => exit(status.code().unwrap_or(1)),
                     Err(err) => {
@@ -134,7 +147,7 @@ fn main() {
                 .collect();
 
             // Pass uv_args and script_args separately
-            match pytron::run_from_zip(&zipfile, password.as_ref(), &script, &uv_args, &filtered_script_args) {
+            match pytron::run_from_zip(&zipfile, password.as_ref(), verification_path.as_ref(), &script, &uv_args, &filtered_script_args) {
                 Ok(code) => code,
                 Err(err) => {
                     eprintln!("Error running from zip: {}", err);
@@ -192,9 +205,10 @@ fn main() {
                 output,
                 ignore_patterns,
                 password,
+                sign,
             } => {
                 if let Err(err) =
-                    pytron::zip_directory(directory, output, ignore_patterns.as_ref(), password.as_ref())
+                    pytron::zip_directory(directory, output, ignore_patterns.as_ref(), password.as_ref(), sign)
                 {
                     eprintln!("Error zipping directory: {}", err);
                     exit(1);
@@ -203,6 +217,7 @@ fn main() {
             Commands::Run {
                 zipfile,
                 password,
+                verify,
                 script,
                 uv_args,
                 script_args,
@@ -220,7 +235,7 @@ fn main() {
                 }
                 
                 // This branch is for when using clap with -- to pass args
-                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), script, uv_args, script_args) {
+                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), verify.as_ref(), script, uv_args, script_args) {
                     Ok(code) => code,
                     Err(err) => {
                         eprintln!("Error running from zip: {}", err);

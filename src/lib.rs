@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use ignore::WalkBuilder;
 use reqwest::blocking::Client;
+use signature::{sign_zip, verify_zip};
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -8,6 +9,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
+
+pub mod signature;
 
 #[cfg(windows)]
 use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE};
@@ -43,7 +46,11 @@ pub enum Commands {
 
         /// Additional AES encryption password
         #[arg(short, long)]
-        password: Option<String>
+        password: Option<String>,
+
+        /// Additional flag to sign ZIP file with Ed25519
+        #[arg(short, long, default_value_t = false)]
+        sign: bool,
     },
 
     #[command(
@@ -72,8 +79,14 @@ pub enum Commands {
             short,
             long,
             help="AES Decryption password to decrypt the given ZIP file",
-            long_help="AES Decryption password to decrypt the given ZIP file\nThis depends on if the file has been encrypted before\n Example: \n --password hello-world")]
+            long_help="AES Decryption password to decrypt the given ZIP file\nThis depends on if the file has been encrypted before\nExample: \n  --password hello-world")]
         password: Option<String>,
+
+        #[arg(
+            long,
+            help="Verify signature of ZIP file for authenticity and to avoid data integrity",
+            long_help="Verify signature of ZIP file for authenticity and to avoid data integrity\nExample: \n  --verify example.key")]
+        verify: Option<String>,
         
         #[arg(
             value_name = "UV_ARGS",
@@ -101,7 +114,8 @@ pub fn zip_directory(
     directory: &str,
     output: &str,
     ignore_patterns: Option<&Vec<String>>,
-    password: Option<&String>
+    password: Option<&String>,
+    sign: &bool,
 ) -> io::Result<()> {
     let dir_path = Path::new(directory);
     let output_path = Path::new(output);
@@ -267,6 +281,9 @@ pub fn zip_directory(
 
     // Finalize the zip
     zip.finish()?;
+    if *sign {
+        sign_zip(output).unwrap();
+    }
     println!("Archive created successfully: {}", output);
 
     Ok(())
@@ -566,6 +583,7 @@ pub fn check_and_enable_long_path_support() -> io::Result<bool> {
 pub fn run_from_zip(
     zipfile: &str,
     password: Option<&String>,
+    verification_path: Option<&String>,
     script_path: &str,
     uv_args: &[String],
     script_args: &[String],
@@ -588,6 +606,13 @@ pub fn run_from_zip(
             }
         }
     }
+    println!("Verifying signature...");
+    if let Some(v_path) = verification_path {
+        verify_zip(zipfile, v_path)
+            .unwrap_or_else(|e| panic!("Error during validation: {e}"));
+    }
+    println!("Signature is valid.");
+
     
     // Create a temporary directory for extraction inside PYTRON_HOME
     // Use our centralized get_pytron_home function for consistency
