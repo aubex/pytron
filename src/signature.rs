@@ -62,7 +62,7 @@ pub fn verify_zip(zip_file_path: &str, verification_path: &str) -> Result<(), Bo
         let end = start + expected_marker.len();
         let marker_bytes = &file_bytes[start..end];
         if marker_bytes != expected_marker {
-            return Err("File already contains the expected signature marker".into());
+            return Err("File does not contain the expected signature marker".into());
         }
     }
 
