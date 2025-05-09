@@ -5,7 +5,6 @@ use ed25519_dalek::{Keypair, Signer, Signature, PublicKey, Verifier};
 use rand::rngs::OsRng;
 use std::io;
 
-/// TODO: Adjust Result error type and error messages
 pub fn sign_zip(zip_file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Create a new keypair
     let mut csprng = OsRng;
@@ -18,12 +17,13 @@ pub fn sign_zip(zip_file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     // Check for a specific marker or pattern
     let expected_marker: [u8; 4] = [0x05, 0x04, 0x07, 0x07];
-    let marker_position: isize = (zip_bytes.len() as isize) - 64 - (expected_marker.len() as isize);
+    let marker_position = zip_bytes.len() as isize - 64 - expected_marker.len() as isize;
     if marker_position > 0 {
-        let marker_position: usize = marker_position as usize;
-        let marker_bytes = &zip_bytes[marker_position..marker_position + expected_marker.len()];
+        let start = marker_position as usize;
+        let end = start + expected_marker.len();
+        let marker_bytes = &zip_bytes[start..end];
         if marker_bytes == expected_marker {
-            return Err("File does already contain the expected signature marker".into());
+            return Err("File already contains the expected signature marker".into());
         }
     }
 
@@ -56,12 +56,13 @@ pub fn verify_zip(zip_file_path: &str, verification_path: &str) -> Result<(), Bo
 
     // Check for a specific marker or pattern
     let expected_marker: [u8; 4] = [0x05, 0x04, 0x07, 0x07];
-    let marker_position: isize = (file_bytes.len() as isize) - 64 - (file_bytes.len() as isize);
+    let marker_position = file_bytes.len() as isize - 64 - expected_marker.len() as isize;
     if marker_position > 0 {
-        let marker_position: usize = marker_position as usize;
-        let marker_bytes = &file_bytes[marker_position..marker_position + expected_marker.len()];
+        let start = marker_position as usize;
+        let end = start + expected_marker.len();
+        let marker_bytes = &file_bytes[start..end];
         if marker_bytes != expected_marker {
-            return Err("File does not contain the expected marker".into());
+            return Err("File already contains the expected signature marker".into());
         }
     }
 

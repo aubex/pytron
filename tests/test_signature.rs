@@ -64,7 +64,7 @@ fn test_sign_zip_already_signed_error() {
     let err = sign_zip(zip_path.to_str().unwrap()).expect_err("should have failed");
     let msg = err.to_string();
     assert!(
-        msg.contains("already contain the expected signature marker"),
+        msg.contains("already contains the expected signature marker"),
         "Unexpected error message: {}",
         msg
     );
