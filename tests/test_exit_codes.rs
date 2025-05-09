@@ -55,6 +55,7 @@ fn test_exit_code_handling() {
         output_zip.to_str().unwrap(),
         None,
         None,
+        &false
     )
     .expect("Failed to create test zip file");
 
@@ -124,6 +125,7 @@ fn test_exit_code_forwarding_integration() {
         output_zip.to_str().unwrap(),
         None,
         None,
+        &false,
     )
     .expect("Failed to create test zip file");
 
@@ -136,7 +138,7 @@ fn test_exit_code_forwarding_integration() {
     ];
 
     for (script_name, args, expected_code) in &test_cases {
-        let result = pytron::run_from_zip(output_zip.to_str().unwrap(), None, script_name, &[], args);
+        let result = pytron::run_from_zip(output_zip.to_str().unwrap(), None, None, script_name, &[], args);
 
         // If the test succeeds, it should return the expected code
         if let Ok(code) = result {

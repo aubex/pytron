@@ -109,7 +109,8 @@ fn test_run_from_zip_uses_pytron_home_for_temp() {
         test_dir.path().to_str().unwrap(),
         zip_path.to_str().unwrap(),
         None,
-        None
+        None,
+        &false
     )
     .expect("Failed to create zip file");
 
@@ -128,7 +129,7 @@ fn test_run_from_zip_uses_pytron_home_for_temp() {
 
     // Run the script, but since we likely don't have uv installed in our test environment,
     // this will probably fail - but that's okay for this test
-    let _ = pytron::run_from_zip(zip_path.to_str().unwrap(),None, "test_script.py", &[], &[]);
+    let _ = pytron::run_from_zip(zip_path.to_str().unwrap(),None, None, "test_script.py", &[], &[]);
 
     // After our run_from_zip call, check that the temp directory still exists
     println!(

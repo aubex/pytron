@@ -17,7 +17,8 @@ fn test_run_from_zip() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
-        None
+        None,
+        &false
     )
     .expect("Failed to create test zip file");
 
@@ -25,6 +26,7 @@ fn test_run_from_zip() {
     // but we can test the extraction part by checking for errors
     let result = run_from_zip(
         output_zip.to_str().unwrap(),
+        None,
         None,
         "non_existent.py", // This should cause the function to return an error
         &[],               // uv_args
@@ -76,7 +78,8 @@ print(f"Arguments received: {sys.argv[1:]}")
         test_dir.path().to_str().unwrap(),
         zip_path.to_str().unwrap(),
         None,
-        None
+        None,
+        &false
     )
     .expect("Failed to create test zip file");
 
@@ -110,6 +113,7 @@ print(f"Arguments received: {sys.argv[1:]}")
         // Run the script
         let _ = run_from_zip(
             zip_path.to_str().unwrap(),
+            None,
             None,
             "arg_test.py",
             &uv_args,
@@ -191,7 +195,8 @@ print('Hello World')
         test_dir.path().to_str().unwrap(),
         zip_path.to_str().unwrap(),
         None,
-        Some(&password)
+        Some(&password),
+        &false
     )
     .expect("Failed to create test zip file");
 
@@ -228,6 +233,7 @@ print('Hello World')
         let result = run_from_zip(
             zip_path.to_str().unwrap(),
             Some(&password),
+            None,
             "password_test.py",
             &uv_args,
             &script_args,
