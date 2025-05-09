@@ -60,6 +60,7 @@ fn test_cli_parsing() {
         assert_eq!(patterns.len(), 1, "Expected 1 empty string");
         assert_eq!(patterns[0], "", "Pattern should be empty string");
         assert!(password.is_none(), "No password expected");
+        assert!(!sign, "Sign flag should be false");
 
     } else {
         panic!("Expected Zip command");

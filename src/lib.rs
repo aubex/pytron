@@ -84,8 +84,8 @@ pub enum Commands {
 
         #[arg(
             long,
-            help="Verify signature of ZIP file for authenticity and to avoid data integrity",
-            long_help="Verify signature of ZIP file for authenticity and to avoid data integrity\nExample: \n  --verify example.key")]
+            help="Verify signature of ZIP file for authenticity and to ensure data integrity",
+            long_help="Verify signature of ZIP file for authenticity and to ensure data integrity\nExample: \n  --verify example.key")]
         verify: Option<String>,
         
         #[arg(
