@@ -65,6 +65,17 @@ Using a double-dash separator with default zip/script:
 pytron run -v -- --script-arg
 ```
 
+### Dealing with cache
+Show all available cache directories in current project
+```
+pytron cache dir
+```
+
+Clear all local cache (including global uv cache)
+```
+pytron cache clear
+```
+
 ## Argument Handling
 
 Arguments are separated in two ways:
