@@ -22,6 +22,18 @@ pub struct Cli {
     pub command: Commands,
 }
 
+/// Define actions available under the "cache" subcommand
+#[derive(Subcommand)]
+pub enum CacheActions {
+    /// Clear all global uv caches and local python cache directories (including .venv)
+    Clear,
+
+    /// Show all cache directories
+    Dir,
+
+}
+
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Zip files in a directory into robot.zip respecting .gitignore
@@ -44,6 +56,12 @@ pub enum Commands {
         /// Additional AES encryption password
         #[arg(short, long)]
         password: Option<String>
+    },
+
+    /// Cache-related subcommands
+    Cache {
+        #[command(subcommand)]
+        action: CacheActions,
     },
 
     #[command(
@@ -694,4 +712,57 @@ pub fn run_from_zip(
     let status = get_uv_command().args(&cmd_args).status()?;
 
     Ok(status.code().unwrap_or(1))
+}
+
+pub fn delete_python_cache<P: AsRef<Path>>(path: P) -> io::Result<i32> {
+    let path = path.as_ref();
+
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+
+            // If the entry is __pycache__ or .pytest_cache, delete it
+            if entry_path.is_dir() {
+                if entry_path.file_name().map(|f| f == "__pycache__" || f == ".pytest_cache" || f == ".venv").unwrap_or(false) {
+                    println!("Deleting cache directory: {:?}", entry_path);
+                    fs::remove_dir_all(entry_path)?;
+                } else {
+                    // Recursively search for these directories in subdirectories
+                    delete_python_cache(entry_path.as_path())?;
+                }
+            }
+        }
+    }
+    Ok(0)
+}
+
+pub fn show_cache_dirs<P: AsRef<Path>>(path: P) -> io::Result<i32>  {
+    let dirs_to_show = vec![
+        "__pycache__",  // Python bytecode cache
+        ".pytest_cache", // pytest cache
+    ];
+
+    let path = path.as_ref();
+
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+
+            // If the entry is __pycache__ or .pytest_cache, delete it
+            if entry_path.is_dir() {
+                for dir in &dirs_to_show {
+                    if entry_path.ends_with(dir) {
+                        println!("* Found python cache directory: {}", entry_path.display());
+                    }
+                }
+                if entry_path.ends_with(".venv") {
+                    println!("* Found python virtual environment: {}", entry_path.display())
+                }
+                show_cache_dirs(entry_path.as_path())?;
+            }
+        }
+    }
+    Ok(0)
 }
