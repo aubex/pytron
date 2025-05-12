@@ -99,7 +99,7 @@ fn main() {
                     }
                 }
                 // Run uv directly with help flag
-                let status = pytron::get_uv_command().args(&["run", "--help"]).status();
+                let status = pytron::get_uv_command().args(["run", "--help"]).status();
                 match status {
                     Ok(status) => exit(status.code().unwrap_or(1)),
                     Err(err) => {
