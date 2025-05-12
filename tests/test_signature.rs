@@ -1,7 +1,7 @@
 use pytron::signature::{sign_zip, verify_zip};
 use tempfile::tempdir;
 use std::{fs, io::Write, path::PathBuf};
-use ed25519_dalek::{Keypair, Signer, PUBLIC_KEY_LENGTH};
+use ed25519_dalek::{SigningKey, Signer, PUBLIC_KEY_LENGTH};
 use rand::rngs::OsRng;
 
 
@@ -122,15 +122,17 @@ fn test_verify_zip_invalid_signature() {
 
     // Sign with a new keypair A.
     let mut csprng = OsRng;
-    let keypair_a: Keypair = Keypair::generate(&mut csprng);
+    let keypair_a: SigningKey = SigningKey::generate(&mut csprng);
+
     let sig = keypair_a.sign(&data).to_bytes();
     data.extend_from_slice(&sig);
     fs::write(&zip_path, &data).expect("write bad zip");
 
     // Write a .key file for another keypair B.
     let key_path = dir.path().join("bad.key");
-    let keypair_b: Keypair = Keypair::generate(&mut csprng);
-    fs::write(&key_path, keypair_b.public.to_bytes()).expect("write wrong key");
+    let keypair_b: SigningKey = SigningKey::generate(&mut csprng);
+
+    fs::write(&key_path, keypair_b.verifying_key().to_bytes()).expect("write wrong key");
 
     // Attempt to verify with key from keypair B.
     let err = verify_zip(zip_path.to_str().unwrap(), key_path.to_str().unwrap())
