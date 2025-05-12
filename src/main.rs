@@ -1,6 +1,7 @@
 use clap::Parser;
-use pytron::{Cli, Commands};
-use std::{env, process::exit};
+use pytron::{Cli, Commands, CacheActions};
+use std::env;
+use std::process::{Command, exit};
 
 fn main() {
     // On Windows, check for long path support at startup
@@ -228,6 +229,66 @@ fn main() {
                     }
                 };
                 exit(exit_code);
+            }
+            Commands::Cache { action } => match action {
+                CacheActions::Clear => {
+                    let current_dir = std::env::current_dir().unwrap();
+                    let exit_code = match pytron::delete_python_cache(current_dir) {
+                        Ok(code) => code,
+                        Err(err) => {
+                            eprintln!("Error clearing the cache: {}", err);
+                            1
+                        }
+                    };
+                    if pytron::is_uv_installed() {
+                        let mut output = Command::new("uv")
+                        .arg("cache")
+                        .arg("clean")
+                        .output()
+                        .expect("Failed to execute uv cache clear command");
+                    
+                        if !output.status.success() {
+                            eprintln!("Error clearing uv cache: {}", String::from_utf8_lossy(&output.stderr));
+                            exit(1);
+                        }
+                        println!("Successfully cleaned uv cache");
+                        output = Command::new("uv")
+                            .arg("cache")
+                            .arg("prune")
+                            .output()
+                            .expect("Failed to execute uv cache prune command");
+
+                        if !output.status.success() {
+                            eprintln!("Error pruning uv cache: {}", String::from_utf8_lossy(&output.stderr));
+                            exit(1);
+                        }
+                        println!("Successfully pruned uv cache");
+                    }
+                    exit(exit_code);
+                },
+                CacheActions::Dir => {
+                    let current_dir = std::env::current_dir().unwrap();
+                    println!("Cache directories:");
+                    if pytron::is_uv_installed() {
+                        let uv_output = Command::new("uv")
+                        .arg("cache")
+                        .arg("dir")
+                        .output()
+                        .expect("Failed to execute uv cache dir command");
+
+                        if uv_output.status.success() {
+                            println!("* Found uv cache directory: {}", String::from_utf8_lossy(&uv_output.stdout).trim());
+                        }
+                    }
+                    let exit_code = match pytron::show_cache_dirs(current_dir) {
+                        Ok(code) => code,
+                        Err(err) => {
+                            eprintln!("Error showing the cache directories: {}", err);
+                            1
+                        }
+                    };
+                    exit(exit_code);
+                }
             }
         }
     }
