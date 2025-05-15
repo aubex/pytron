@@ -85,8 +85,8 @@ pub enum Commands {
         #[arg(
             long,
             help="Verify signature of ZIP file for authenticity and to ensure data integrity",
-            long_help="Verify signature of ZIP file for authenticity and to ensure data integrity\nExample: \n  --verify example.key")]
-        verify: Option<String>,
+            long_help="Verify signature of ZIP file for authenticity and to ensure data integrity\nExample: \n  --signed example.key")]
+        signed: Option<String>,
         
         #[arg(
             value_name = "UV_ARGS",
@@ -606,12 +606,12 @@ pub fn run_from_zip(
             }
         }
     }
-    println!("Verifying signature...");
     if let Some(v_path) = verification_path {
+        println!("Verifying signature...");
         verify_zip(zipfile, v_path)
             .unwrap_or_else(|e| panic!("Error during validation: {e}"));
-    }
-    println!("Signature is valid.");
+        println!("Signature is valid.");
+        }
 
     
     // Create a temporary directory for extraction inside PYTRON_HOME

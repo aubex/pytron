@@ -1,11 +1,13 @@
 use clap::Parser;
 use pytron::{Cli, Commands};
 use std::{env, process::exit};
+use dotenv::dotenv;
 
 fn main() {
     // On Windows, check for long path support at startup
     #[cfg(windows)]
     {
+        dotenv().ok();
         match pytron::check_and_enable_long_path_support() {
             Ok(true) => {
                 // Long path support is enabled, continue normally
@@ -47,17 +49,31 @@ fn main() {
         let mut verification_path = None;
 
         while i < args.len() {
-
-            if args[i] == "--verify" {
+            if args[i] == "--signed" {
                 // next element must be the password
                 if i + 1 < args.len() {
                     verification_path = Some(args[i + 1].clone());
+                    if let Some(path) = &verification_path {
+                        println!("Key path found from args: {}", path);
+                    }
                     i += 2;
-                    continue;
                 } else {
-                    eprintln!("Error: `{}` requires a value", args[i]);
-                    std::process::exit(1);
+                    verification_path = std::env::var("PYTRON_SIGNATURE_KEY").ok();
+                    if let Some(path) = &verification_path {
+                        println!("Key path found from environment variable: {}", path);
+                    } else {
+                        verification_path = Some(zipfile.replace(".zip", ".key"));
+                        
+                        if let Some(path) = &verification_path {
+                            println!("Key path defaults to: {}", path);
+                        } else {
+                            eprintln!("Error: Key not found.");
+                            std::process::exit(1);
+                        }
+                    }
+                    i += 1;
                 }
+                continue;
             }
 
             if args[i] == "--password" || args[i] == "-p" {
@@ -217,7 +233,7 @@ fn main() {
             Commands::Run {
                 zipfile,
                 password,
-                verify,
+                signed,
                 script,
                 uv_args,
                 script_args,
@@ -235,7 +251,7 @@ fn main() {
                 }
                 
                 // This branch is for when using clap with -- to pass args
-                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), verify.as_ref(), script, uv_args, script_args) {
+                let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), signed.as_ref(), script, uv_args, script_args) {
                     Ok(code) => code,
                     Err(err) => {
                         eprintln!("Error running from zip: {}", err);

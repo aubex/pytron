@@ -73,7 +73,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
-        verify,
+        signed,
         password,
         uv_args,
         script_args,
@@ -87,20 +87,20 @@ fn test_cli_parsing() {
         assert_eq!(uv_args.len(), 0, "No UV arguments expected");
         assert_eq!(script_args.len(), 0, "No script arguments expected");
         assert!(password.is_none(), "No password expected");
-        assert!(verify.is_none(), "No verification path expected");
+        assert!(signed.is_none(), "No verification path expected");
 
     } else {
         panic!("Expected Run command");
     }
 
     // Test the Run command with custom values (all in script_args)
-    let args = vec!["pytron", "run", "--verify", "foo.key", "-p", "fooPass", "custom.zip", "custom.py", "arg1", "arg2"];
+    let args = vec!["pytron", "run", "--signed", "foo.key", "-p", "fooPass", "custom.zip", "custom.py", "arg1", "arg2"];
     let cli = Cli::parse_from(args);
 
     if let Commands::Run {
         zipfile,
         script,
-        verify,
+        signed,
         password,
         uv_args,
         script_args,
@@ -109,7 +109,7 @@ fn test_cli_parsing() {
         assert_eq!(zipfile, "custom.zip", "Custom zip file name not matched");
         assert_eq!(script, "custom.py", "Custom script name not matched");
         assert_eq!(password.unwrap(), "fooPass", "Passwort 'fooPass' expected");
-        assert_eq!(verify.unwrap(), "foo.key", "Verification file 'foo.key' expected");
+        assert_eq!(signed.unwrap(), "foo.key", "Signature file 'foo.key' expected");
         
         // With this structure, arg1 and arg2 are actually captured as UV args
         assert_eq!(uv_args.len(), 2, "Expected 2 UV arguments with this parsing style");
@@ -132,7 +132,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
-        verify,
+        signed,
         password,
         uv_args,
         script_args,
@@ -143,7 +143,7 @@ fn test_cli_parsing() {
         assert_eq!(uv_args.len(), 0, "No UV args expected");  
         assert_eq!(script_args.len(), 0, "No script args expected");
         assert!(password.is_none(), "No password expected");
-        assert!(verify.is_none(), "No verification path expected");
+        assert!(signed.is_none(), "No verification path expected");
 
     } else {
         panic!("Expected Run command");

@@ -57,7 +57,12 @@ pytron run example.zip main.py
 
 Run a script from a zip file with verification:
 ```
-pytron run example.zip main.py --verify example.key
+pytron run example.zip main.py --signed example.key
+```
+
+Run a script from a zip file with verification path in env variables:
+```
+pytron run example.zip main.py --signed
 ```
 
 Run a script from an encrypted zip file:
