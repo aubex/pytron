@@ -609,7 +609,7 @@ pub fn run_from_zip(
     if let Some(v_path) = verification_path {
         println!("Verifying signature...");
         verify_zip(zipfile, v_path)
-            .unwrap_or_else(|e| panic!("Error during validation: {e}"));
+            .unwrap_or_else(|e| panic!("Error during verification: {e}"));
         println!("Signature is valid.");
         }
 

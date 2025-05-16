@@ -12,7 +12,7 @@ pub fn sign_zip(zip_file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
 
     // Read the ZIP file as byte array
-    let mut file = File::open(zip_file_path)?;
+    let mut file = File::open(zip_file_path).unwrap_or_else(|e| panic!("Error using zipfile: {e}"));
     let mut zip_bytes = Vec::new();
     file.read_to_end(&mut zip_bytes)?;
 
@@ -46,7 +46,7 @@ pub fn sign_zip(zip_file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn verify_zip(zip_file_path: &str, verification_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Read the ZIP file into a byte array
-    let mut file = File::open(zip_file_path)?;
+    let mut file = File::open(zip_file_path).unwrap_or_else(|e| panic!("Error using zipfile: {e}"));
     let mut file_bytes = Vec::new();
     file.read_to_end(&mut file_bytes)?;
 
@@ -77,7 +77,7 @@ pub fn verify_zip(zip_file_path: &str, verification_path: &str) -> Result<(), Bo
     let data_to_verify = &file_bytes[..file_bytes.len() - 64];
 
     // Read the public key from the .key file
-    let mut public_key_file = File::open(verification_path)?;
+    let mut public_key_file = File::open(verification_path).unwrap_or_else(|e| panic!("Error using key file: {e}"));
     let mut public_key_bytes = Vec::new();
     public_key_file.read_to_end(&mut public_key_bytes)?;
 
