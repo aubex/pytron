@@ -23,6 +23,11 @@ With AES encryption
 pytron zip -o example.zip -p hello-world
 ```
 
+With signature flag
+```
+pytron zip -o example.zip -s
+```
+
 ### Running scripts
 
 Run a script directly:
@@ -48,6 +53,16 @@ pytron run main.py --custom-flag
 Run a script from a zip file:
 ```
 pytron run example.zip main.py
+```
+
+Run a script from a zip file with verification:
+```
+pytron run example.zip main.py --signed example.key
+```
+
+Run a script from a zip file with verification path in env variables:
+```
+pytron run example.zip main.py --signed
 ```
 
 Run a script from an encrypted zip file:

@@ -8,7 +8,7 @@ fn test_cli_parsing() {
     let args = vec!["pytron", "zip"];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -16,6 +16,7 @@ fn test_cli_parsing() {
         );
         assert!(ignore_patterns.is_none(), "Default ignore_patterns should be None");
         assert!(password.is_none(), "No password expected");
+        assert!(!sign, "Sign flag should be false");
 
     } else {
         panic!("Expected Zip command");
@@ -25,7 +26,7 @@ fn test_cli_parsing() {
     let args = vec!["pytron", "zip", "--ignore-patterns", "node_modules,*.log,*.tmp"];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -38,6 +39,7 @@ fn test_cli_parsing() {
         assert_eq!(patterns[1], "*.log", "Second pattern should be '*.log'");
         assert_eq!(patterns[2], "*.tmp", "Third pattern should be '*.tmp'");
         assert!(password.is_none(), "No password expected");
+        assert!(!sign, "Sign flag should be false");
 
     } else {
         panic!("Expected Zip command");
@@ -47,7 +49,7 @@ fn test_cli_parsing() {
     let args = vec!["pytron", "zip", "--ignore-patterns", ""];
     let cli = Cli::parse_from(args);
 
-    if let Commands::Zip { directory, output, ignore_patterns, password } = cli.command {
+    if let Commands::Zip { directory, output, ignore_patterns, password, sign } = cli.command {
         assert_eq!(directory, ".", "Default directory should be '.'");
         assert_eq!(
             output, "robot.zip",
@@ -58,6 +60,7 @@ fn test_cli_parsing() {
         assert_eq!(patterns.len(), 1, "Expected 1 empty string");
         assert_eq!(patterns[0], "", "Pattern should be empty string");
         assert!(password.is_none(), "No password expected");
+        assert!(!sign, "Sign flag should be false");
 
     } else {
         panic!("Expected Zip command");
@@ -70,6 +73,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
+        signed,
         password,
         uv_args,
         script_args,
@@ -83,18 +87,20 @@ fn test_cli_parsing() {
         assert_eq!(uv_args.len(), 0, "No UV arguments expected");
         assert_eq!(script_args.len(), 0, "No script arguments expected");
         assert!(password.is_none(), "No password expected");
+        assert!(signed.is_none(), "No verification path expected");
 
     } else {
         panic!("Expected Run command");
     }
 
     // Test the Run command with custom values (all in script_args)
-    let args = vec!["pytron", "run", "-p", "fooPass", "custom.zip", "custom.py", "arg1", "arg2"];
+    let args = vec!["pytron", "run", "--signed", "foo.key", "-p", "fooPass", "custom.zip", "custom.py", "arg1", "arg2"];
     let cli = Cli::parse_from(args);
 
     if let Commands::Run {
         zipfile,
         script,
+        signed,
         password,
         uv_args,
         script_args,
@@ -103,6 +109,7 @@ fn test_cli_parsing() {
         assert_eq!(zipfile, "custom.zip", "Custom zip file name not matched");
         assert_eq!(script, "custom.py", "Custom script name not matched");
         assert_eq!(password.unwrap(), "fooPass", "Passwort 'fooPass' expected");
+        assert_eq!(signed.unwrap(), "foo.key", "Signature file 'foo.key' expected");
         
         // With this structure, arg1 and arg2 are actually captured as UV args
         assert_eq!(uv_args.len(), 2, "Expected 2 UV arguments with this parsing style");
@@ -125,6 +132,7 @@ fn test_cli_parsing() {
     if let Commands::Run {
         zipfile,
         script,
+        signed,
         password,
         uv_args,
         script_args,
@@ -135,6 +143,7 @@ fn test_cli_parsing() {
         assert_eq!(uv_args.len(), 0, "No UV args expected");  
         assert_eq!(script_args.len(), 0, "No script args expected");
         assert!(password.is_none(), "No password expected");
+        assert!(signed.is_none(), "No verification path expected");
 
     } else {
         panic!("Expected Run command");

@@ -53,7 +53,8 @@ fn test_zip_directory() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
-        None
+        None,
+        &false,
     );
 
     // Verify the function succeeded
@@ -112,7 +113,8 @@ fn test_zip_directory_aes_encrypted() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
-        Some(&password)
+        Some(&password),
+        &false
     );
 
     // Verify the function succeeded
@@ -155,7 +157,8 @@ fn test_zip_directory_aes_decryption_wrong_password() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
-        Some(&password)
+        Some(&password),
+        &false
     );
 
     // Verify the function succeeded
@@ -191,7 +194,8 @@ fn test_zip_directory_aes_decryption_password_required() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         None,
-        Some(&password)
+        Some(&password),
+        &false
     );
 
     // Verify the function succeeded
@@ -244,7 +248,8 @@ fn test_zip_directory_with_custom_ignore() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         custom_patterns.as_ref(),
-        None
+        None,
+        &false,
     );
     
     // Verify the function succeeded
@@ -301,7 +306,8 @@ fn test_zip_directory_override_defaults() {
         test_dir.path().to_str().unwrap(),
         output_zip.to_str().unwrap(),
         override_patterns.as_ref(),
-        None
+        None,
+        &false
     );
     
     // Verify the function succeeded
