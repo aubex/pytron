@@ -314,6 +314,21 @@ pub fn is_uv_installed() -> bool {
     get_uv_path().exists()
 }
 
+/// Ensures uv is installed by checking if it exists and downloading if needed.
+/// Prints progress messages and exits the process with code 1 if download fails.
+pub fn ensure_uv_installed() {
+    if !is_uv_installed() {
+        println!("uv not found. Attempting to download...");
+        match download_uv() {
+            Ok(path) => println!("Downloaded uv to: {}", path.display()),
+            Err(err) => {
+                eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
 /// Gets the pytron home directory path
 pub fn get_pytron_home() -> PathBuf {
     // Check if PYTRON_HOME is set
