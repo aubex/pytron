@@ -87,16 +87,7 @@ fn main() {
                 // Skip zip file execution completely when -hh is used
                 println!("Running: uv run --help");
                 // Check if uv is installed or download it if needed
-                if !pytron::is_uv_installed() {
-                    println!("uv not found. Attempting to download...");
-                    match pytron::download_uv() {
-                        Ok(path) => println!("Downloaded uv to: {}", path.display()),
-                        Err(err) => {
-                            eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
-                            exit(1);
-                        }
-                    }
-                }
+                pytron::ensure_uv_installed();
                 // Run uv directly with help flag
                 let status = pytron::get_uv_command().args(&["run", "--help"]).status();
                 match status {
@@ -146,16 +137,7 @@ fn main() {
             println!("Running script directly: {}", zipfile);
 
             // Check if uv is installed or download it if needed
-            if !pytron::is_uv_installed() {
-                println!("uv not found. Attempting to download...");
-                match pytron::download_uv() {
-                    Ok(path) => println!("Downloaded uv to: {}", path.display()),
-                    Err(err) => {
-                        eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
-                        exit(1);
-                    }
-                }
-            }
+            pytron::ensure_uv_installed();
 
             // In this case, zipfile is actually the script path
             let mut cmd_args = vec!["run".to_string()];
@@ -208,17 +190,8 @@ fn main() {
                 script_args,
             } => {
                 // Check if uv is installed or download it if needed
-                if !pytron::is_uv_installed() {
-                    println!("uv not found. Attempting to download...");
-                    match pytron::download_uv() {
-                        Ok(path) => println!("Downloaded uv to: {}", path.display()),
-                        Err(err) => {
-                            eprintln!("Failed to download uv: {}. Please install uv manually (https://github.com/astral-sh/uv)", err);
-                            exit(1);
-                        }
-                    }
-                }
-                
+                pytron::ensure_uv_installed();
+
                 // This branch is for when using clap with -- to pass args
                 let exit_code = match pytron::run_from_zip(zipfile, password.as_ref(), script, uv_args, script_args) {
                     Ok(code) => code,
